@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StrategyType, StrategyParams } from '../types';
 import { Card, Label } from './UI';
 import { DatePicker } from './DatePicker';
@@ -7,7 +7,7 @@ import { Settings2, DollarSign } from 'lucide-react';
 
 interface ConfigPanelProps {
   ticker: string;
-  onTickerCommit: (ticker: string) => void; // 变更：提交回调
+  onTickerCommit: (ticker: string) => void;
   strategy: StrategyType;
   setStrategy: (val: StrategyType) => void;
   params: StrategyParams;
@@ -18,6 +18,79 @@ interface ConfigPanelProps {
   setEndDate: (val: string) => void;
   onRun: () => void;
 }
+
+// ----------------------------------------------------------------------
+// 1. 新增：带缓冲功能的滑条组件
+//    只有在 onMouseUp / onTouchEnd 时才触发 commitChange
+// ----------------------------------------------------------------------
+interface ParamSliderProps {
+  label: string;
+  value: number;
+  onChange: (val: number) => void; // 这里的 onChange 实际上是 "onCommit"
+  min: number;
+  max: number;
+  step?: number;
+  colorTheme?: 'sakura' | 'sky' | 'emerald' | 'rose' | 'slate';
+  suffix?: string;
+}
+
+const ParamSlider: React.FC<ParamSliderProps> = ({ 
+  label, value, onChange, min, max, step = 1, colorTheme = 'sakura', suffix = '' 
+}) => {
+  // 内部状态，用于实时响应拖拽，不阻塞主线程
+  const [localValue, setLocalValue] = useState(value);
+  
+  // 当父组件通过 AI 策略或其他方式修改 params 时，同步更新内部状态
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  // 处理拖拽过程（只更新显示）
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalValue(parseFloat(e.target.value));
+  };
+
+  // 处理松手（提交真实数据，触发回测）
+  const handleCommit = () => {
+    if (localValue !== value) {
+      onChange(localValue);
+    }
+  };
+
+  // 样式映射
+  const colorStyles = {
+    sakura: { badge: 'bg-sakura-50 text-sakura-600', accent: 'accent-sakura-400' },
+    sky:    { badge: 'bg-sky-50 text-sky-600',       accent: 'accent-sky-400' },
+    emerald:{ badge: 'bg-emerald-50 text-emerald-600', accent: 'accent-emerald-400' },
+    rose:   { badge: 'bg-rose-50 text-rose-600',     accent: 'accent-rose-400' },
+    slate:  { badge: 'bg-slate-100 text-slate-600',  accent: 'accent-slate-400' },
+  };
+  const theme = colorStyles[colorTheme] || colorStyles.sakura;
+
+  return (
+    <div>
+      <div className="flex justify-between text-xs mb-2 text-slate-500">
+        <span>{label}</span>
+        <span className={`font-mono font-bold px-2 rounded ${theme.badge}`}>
+          {localValue}{suffix}
+        </span>
+      </div>
+      <input 
+        type="range" 
+        min={min} 
+        max={max} 
+        step={step}
+        value={localValue}
+        onChange={handleInput}       // 实时：更新数字显示
+        onMouseUp={handleCommit}     // 鼠标松开：触发重绘
+        onTouchEnd={handleCommit}    // 触摸结束：触发重绘
+        className={`w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer hover:bg-slate-200 transition-colors ${theme.accent}`}
+      />
+    </div>
+  );
+};
+
+// ----------------------------------------------------------------------
 
 const StrategyDescription = ({ type }: { type: StrategyType }) => {
   const content = {
@@ -62,8 +135,6 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
     setStartDate(start.toISOString().split('T')[0]);
   };
 
-  const SLIDER_CLASS = "w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer hover:bg-slate-200 transition-colors";
-
   return (
     <Card className="h-full flex flex-col gap-6 border-0 shadow-xl shadow-sakura-100/50 bg-white/80 backdrop-blur-md">
       <div className="flex items-center gap-2 mb-2">
@@ -73,7 +144,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
       
       <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar">
         
-        {/* Ticker Search - No Buttons, Auto Commit */}
+        {/* Ticker Search */}
         <TickerSearch 
           value={ticker}
           onCommit={onTickerCommit}
@@ -136,117 +207,98 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
           <StrategyDescription type={strategy} />
         </div>
 
-        {/* Dynamic Parameters */}
+        {/* Dynamic Parameters - 使用新的 ParamSlider 组件 */}
         <div className="space-y-6 bg-white p-4 rounded-xl border border-sakura-100 shadow-sm">
           <Label>Parameters</Label>
           
           {(strategy === StrategyType.SMA_CROSSOVER || strategy === StrategyType.EMA_CROSSOVER) && (
             <>
-              <div>
-                <div className="flex justify-between text-xs mb-2 text-slate-500">
-                  <span>Short Window</span>
-                  <span className="font-mono font-bold bg-sakura-50 text-sakura-600 px-2 rounded">{params.shortWindow}D</span>
-                </div>
-                <input 
-                  type="range" min="5" max="50" value={params.shortWindow}
-                  onChange={(e) => handleParamChange('shortWindow', parseInt(e.target.value))}
-                  className={`${SLIDER_CLASS} accent-sakura-400`}
-                />
-              </div>
-              <div>
-                <div className="flex justify-between text-xs mb-2 text-slate-500">
-                  <span>Long Window</span>
-                  <span className="font-mono font-bold bg-sky-50 text-sky-600 px-2 rounded">{params.longWindow}D</span>
-                </div>
-                <input 
-                  type="range" min="20" max="200" value={params.longWindow}
-                  onChange={(e) => handleParamChange('longWindow', parseInt(e.target.value))}
-                  className={`${SLIDER_CLASS} accent-sky-400`}
-                />
-              </div>
+              <ParamSlider 
+                label="Short Window" 
+                value={params.shortWindow} 
+                onChange={(v) => handleParamChange('shortWindow', v)} 
+                min={5} max={50} suffix="D" colorTheme="sakura"
+              />
+              <ParamSlider 
+                label="Long Window" 
+                value={params.longWindow} 
+                onChange={(v) => handleParamChange('longWindow', v)} 
+                min={20} max={200} suffix="D" colorTheme="sky"
+              />
             </>
           )}
           
           {strategy === StrategyType.RSI_REVERSAL && (
             <>
-            <div>
-                <div className="flex justify-between text-xs mb-2 text-slate-500">
-                <span>RSI Period</span>
-                <span className="font-mono font-bold bg-slate-100 px-2 rounded">{params.rsiPeriod}</span>
-                </div>
-                <input type="range" min="2" max="30" value={params.rsiPeriod} onChange={(e) => handleParamChange('rsiPeriod', parseInt(e.target.value))} className={`${SLIDER_CLASS} accent-sakura-400`} />
-            </div>
-            <div>
-                <div className="flex justify-between text-xs mb-2 text-slate-500">
-                <span>Oversold (Buy)</span>
-                <span className="font-mono font-bold bg-emerald-50 text-emerald-600 px-2 rounded">{params.rsiOversold}</span>
-                </div>
-                <input type="range" min="10" max="40" value={params.rsiOversold} onChange={(e) => handleParamChange('rsiOversold', parseInt(e.target.value))} className={`${SLIDER_CLASS} accent-emerald-400`} />
-            </div>
-            <div>
-                <div className="flex justify-between text-xs mb-2 text-slate-500">
-                <span>Overbought (Sell)</span>
-                <span className="font-mono font-bold bg-rose-50 text-rose-600 px-2 rounded">{params.rsiOverbought}</span>
-                </div>
-                <input type="range" min="60" max="90" value={params.rsiOverbought} onChange={(e) => handleParamChange('rsiOverbought', parseInt(e.target.value))} className={`${SLIDER_CLASS} accent-rose-400`} />
-            </div>
+              <ParamSlider 
+                label="RSI Period" 
+                value={params.rsiPeriod} 
+                onChange={(v) => handleParamChange('rsiPeriod', v)} 
+                min={2} max={30} colorTheme="sakura"
+              />
+              <ParamSlider 
+                label="Oversold (Buy)" 
+                value={params.rsiOversold} 
+                onChange={(v) => handleParamChange('rsiOversold', v)} 
+                min={10} max={40} colorTheme="emerald"
+              />
+              <ParamSlider 
+                label="Overbought (Sell)" 
+                value={params.rsiOverbought} 
+                onChange={(v) => handleParamChange('rsiOverbought', v)} 
+                min={60} max={90} colorTheme="rose"
+              />
             </>
-        )}
+          )}
         
-            {strategy === StrategyType.BOLLINGER_BANDS && (
+          {strategy === StrategyType.BOLLINGER_BANDS && (
             <>
-            <div>
-                <div className="flex justify-between text-xs mb-2 text-slate-500">
-                <span>Period</span>
-                <span className="font-mono font-bold bg-slate-100 px-2 rounded">{params.bbPeriod}</span>
-                </div>
-                <input type="range" min="5" max="50" value={params.bbPeriod} onChange={(e) => handleParamChange('bbPeriod', parseInt(e.target.value))} className={`${SLIDER_CLASS} accent-sakura-400`} />
-            </div>
-            <div>
-                <div className="flex justify-between text-xs mb-2 text-slate-500">
-                <span>Std Dev</span>
-                <span className="font-mono font-bold bg-slate-100 px-2 rounded">{params.bbStdDev}</span>
-                </div>
-                <input type="range" min="1" max="4" step="0.1" value={params.bbStdDev} onChange={(e) => handleParamChange('bbStdDev', parseFloat(e.target.value))} className={`${SLIDER_CLASS} accent-sakura-400`} />
-            </div>
+              <ParamSlider 
+                label="Period" 
+                value={params.bbPeriod} 
+                onChange={(v) => handleParamChange('bbPeriod', v)} 
+                min={5} max={50} colorTheme="sakura"
+              />
+              <ParamSlider 
+                label="Std Dev" 
+                value={params.bbStdDev} 
+                onChange={(v) => handleParamChange('bbStdDev', v)} 
+                min={1} max={4} step={0.1} colorTheme="sakura"
+              />
             </>
-        )}
+          )}
 
-        {strategy === StrategyType.MACD && (
+          {strategy === StrategyType.MACD && (
             <>
-            <div>
-                <div className="flex justify-between text-xs mb-2 text-slate-500">
-                <span>Fast EMA</span>
-                <span className="font-mono font-bold bg-slate-100 px-2 rounded">{params.macdFast}</span>
-                </div>
-                <input type="range" min="5" max="50" value={params.macdFast} onChange={(e) => handleParamChange('macdFast', parseInt(e.target.value))} className={`${SLIDER_CLASS} accent-sakura-400`} />
-            </div>
-            <div>
-                <div className="flex justify-between text-xs mb-2 text-slate-500">
-                <span>Slow EMA</span>
-                <span className="font-mono font-bold bg-slate-100 px-2 rounded">{params.macdSlow}</span>
-                </div>
-                <input type="range" min="20" max="100" value={params.macdSlow} onChange={(e) => handleParamChange('macdSlow', parseInt(e.target.value))} className={`${SLIDER_CLASS} accent-sakura-400`} />
-            </div>
-            <div>
-                <div className="flex justify-between text-xs mb-2 text-slate-500">
-                <span>Signal</span>
-                <span className="font-mono font-bold bg-slate-100 px-2 rounded">{params.macdSignal}</span>
-                </div>
-                <input type="range" min="5" max="20" value={params.macdSignal} onChange={(e) => handleParamChange('macdSignal', parseInt(e.target.value))} className={`${SLIDER_CLASS} accent-sakura-400`} />
-            </div>
+              <ParamSlider 
+                label="Fast EMA" 
+                value={params.macdFast} 
+                onChange={(v) => handleParamChange('macdFast', v)} 
+                min={5} max={50} colorTheme="sakura"
+              />
+              <ParamSlider 
+                label="Slow EMA" 
+                value={params.macdSlow} 
+                onChange={(v) => handleParamChange('macdSlow', v)} 
+                min={20} max={100} colorTheme="sakura"
+              />
+              <ParamSlider 
+                label="Signal" 
+                value={params.macdSignal} 
+                onChange={(v) => handleParamChange('macdSignal', v)} 
+                min={5} max={20} colorTheme="sakura"
+              />
             </>
-        )}
+          )}
 
-        {strategy === StrategyType.MOMENTUM && (
-            <div>
-                <div className="flex justify-between text-xs mb-2 text-slate-500">
-                <span>Lookback Period</span>
-                <span className="font-mono font-bold bg-slate-100 px-2 rounded">{params.rocPeriod}</span>
-                </div>
-                <input type="range" min="5" max="50" value={params.rocPeriod} onChange={(e) => handleParamChange('rocPeriod', parseInt(e.target.value))} className={`${SLIDER_CLASS} accent-sakura-400`} />
-            </div>
-        )}
+          {strategy === StrategyType.MOMENTUM && (
+             <ParamSlider 
+               label="Lookback Period" 
+               value={params.rocPeriod} 
+               onChange={(v) => handleParamChange('rocPeriod', v)} 
+               min={5} max={50} colorTheme="sakura"
+             />
+          )}
 
         </div>
       </div>

@@ -106,7 +106,7 @@ const App: React.FC = () => {
           🌸
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-slate-700 tracking-tight">Speculus</h1>
+          <h1 className="text-2xl font-bold text-slate-700 tracking-tight">QuantForge</h1>
           <p className="text-sm text-slate-400">Beginner Friendly Quantitative Backtesting</p>
         </div>
       </header>
