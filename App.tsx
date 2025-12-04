@@ -7,7 +7,6 @@ import { fetchMarketData } from './services/apiService';
 import { runBacktest } from './services/quantEngine';
 import { AlertCircle, RefreshCcw, X, Users, Code2, Database, Palette, Hammer } from 'lucide-react';
 
-// --- 只需要引入背景图，不需要 logo 图片了 ---
 import bgPattern from './assets/background.png';
 
 const App: React.FC = () => {
@@ -20,6 +19,7 @@ const App: React.FC = () => {
   const INITIAL_START = formatDate(oneYearAgo);
   const INITIAL_END = formatDate(today);
 
+  // --- State Management ---
   const [ticker, setTicker] = useState<string>(INITIAL_TICKER);
   const [startDate, setStartDate] = useState<string>(INITIAL_START);
   const [endDate, setEndDate] = useState<string>(INITIAL_END);
@@ -35,6 +35,9 @@ const App: React.FC = () => {
   const [showCredits, setShowCredits] = useState(false);
   const [isCreditsMounted, setIsCreditsMounted] = useState(false);
 
+  // --- Effects ---
+
+  // Handle Credits Modal Animation
   useEffect(() => {
     if (showCredits) {
       setIsCreditsMounted(true);
@@ -44,21 +47,26 @@ const App: React.FC = () => {
     }
   }, [showCredits]);
 
+  // Main Data Fetching Function
   const handleFetchData = useCallback(async (symbolOverride?: string) => {
     const activeTicker = symbolOverride || ticker;
     if (!activeTicker) return;
 
     setLoading(true);
     setError(null);
-    setRawData(null);
-    setResult(null);
+    
+    // Clear old data briefly to indicate refresh
+    // setRawData(null); 
 
     try {
-      console.log(`Fetching real data for: ${activeTicker}`);
+      console.log(`[App] Fetching data for: ${activeTicker} (${startDate} to ${endDate})`);
+      
+      // Calculate buffer for technical indicators (e.g. SMA200 needs 200 days prior)
       const startObj = new Date(startDate);
-      startObj.setDate(startObj.getDate() - 150); 
+      startObj.setDate(startObj.getDate() - 250); // Increased buffer to be safe
       const bufferStartDate = formatDate(startObj);
       
+      // Call API (which will fallback to Mock if needed)
       const data = await fetchMarketData(activeTicker, bufferStartDate, endDate);
 
       if (!data || data.length === 0) {
@@ -75,22 +83,24 @@ const App: React.FC = () => {
     }
   }, [ticker, startDate, endDate]);
 
-  const handleTickerCommit = (newTicker: string) => {
-    setTicker(newTicker);
-    handleFetchData(newTicker);
-  };
+  // --- 关键修复：监听日期变化自动刷新 ---
+  useEffect(() => {
+    // 使用 Debounce 防止用户快速拖动日期时频繁请求
+    const timer = setTimeout(() => {
+      handleFetchData();
+    }, 500); 
 
-  const handleResetApp = () => {
-    if (window.confirm("Reset QuantForge to default state?")) {
-      setTicker(INITIAL_TICKER);
-      setStartDate(INITIAL_START);
-      setEndDate(INITIAL_END);
-      setStrategy(StrategyType.SMA_CROSSOVER);
-      setParams(DEFAULT_PARAMS);
-      setTimeout(() => window.location.reload(), 100); 
-    }
-  };
+    return () => clearTimeout(timer);
+  }, [startDate, endDate, handleFetchData]); 
+  // 注意：这里没有加 ticker，因为 ticker 变化由 handleTickerCommit 手动触发
 
+  // Initial Load
+  useEffect(() => {
+    handleFetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Run Backtest when rawData or Strategy Params change
   useEffect(() => {
     if (rawData && rawData.length > 0) {
       const backtestResult = runBacktest(
@@ -105,10 +115,29 @@ const App: React.FC = () => {
     }
   }, [rawData, strategy, params, startDate, endDate]);
 
-  useEffect(() => {
-    handleFetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // --- Handlers ---
+
+  const handleTickerCommit = (newTicker: string) => {
+    if (newTicker !== ticker) {
+      setTicker(newTicker);
+      // Directly trigger fetch for ticker change
+      // (The useEffect logic above handles dates, this handles symbol)
+      // We pass the new ticker directly to avoid state closure issues
+      setTimeout(() => handleFetchData(newTicker), 0);
+    }
+  };
+
+  const handleResetApp = () => {
+    if (window.confirm("Reset QuantForge to default state?")) {
+      setTicker(INITIAL_TICKER);
+      setStartDate(INITIAL_START);
+      setEndDate(INITIAL_END);
+      setStrategy(StrategyType.SMA_CROSSOVER);
+      setParams(DEFAULT_PARAMS);
+      // Reload ensures clean slate
+      setTimeout(() => window.location.reload(), 100); 
+    }
+  };
 
   const handleAIStrategyApply = (newStrat: StrategyType, newParams: StrategyParams) => {
     setStrategy(newStrat);
@@ -116,11 +145,9 @@ const App: React.FC = () => {
   };
 
   return (
-    // 根容器只负责 flex 布局，不负责背景
     <div className="min-h-screen font-sans text-slate-850 flex flex-col relative">
       
-      {/* --- 修复核心：独立背景层 (Fixed) --- */}
-      {/* 这一层永远固定在视口，不会随滚动移动，彻底解决边缘露馅问题 */}
+      {/* Background Layer */}
       <div 
         className="fixed inset-0 z-[-2]"
         style={{
@@ -129,10 +156,9 @@ const App: React.FC = () => {
           backgroundPosition: 'center',
         }}
       />
-      {/* 独立的提亮遮罩层 */}
       <div className="fixed inset-0 z-[-1] bg-white/30 pointer-events-none" />
 
-      {/* --- 内容区域 --- */}
+      {/* Main Content */}
       <div className="relative z-10 w-full max-w-7xl mx-auto p-4 md:p-8 flex-grow flex flex-col">
         
         {/* Credits Modal */}
@@ -176,17 +202,13 @@ const App: React.FC = () => {
 
         {/* Header */}
         <header className="mb-10 flex items-center gap-6 select-none">
-          
-          {/* Logo Container - 锤子图标版 */}
           <div 
             onClick={() => setShowCredits(true)}
             className="
               btn-bouncy relative group 
               w-20 h-20 
-              /* 渐变背景：樱花粉 -> 玫瑰红，模拟炉火锻造的感觉 */
               bg-gradient-to-br from-sakura-400 to-rose-500
               rounded-[1.5rem] 
-              /* 边框和阴影 */
               border-2 border-white/50 
               shadow-[0_10px_25px_-5px_rgba(236,72,153,0.3),0_4px_10px_-3px_rgba(0,0,0,0.1)]
               flex items-center justify-center 
@@ -196,16 +218,12 @@ const App: React.FC = () => {
               hover:-translate-y-1
             "
           >
-            {/* 锤子图标：白色，悬停时会有轻微旋转和放大 */}
             <Hammer 
               size={40} 
               strokeWidth={2}
               className="text-white drop-shadow-md transform transition-transform duration-500 cubic-bezier(0.34, 1.56, 0.64, 1) group-hover:scale-110 group-hover:rotate-12" 
             />
-            
-            {/* 视觉特效：顶部高光 */}
             <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent pointer-events-none rounded-[1.5rem]"></div>
-            {/* 视觉特效：内部发光描边 */}
             <div className="absolute inset-0 rounded-[1.5rem] ring-1 ring-inset ring-white/20 pointer-events-none"></div>
           </div>
           
@@ -225,6 +243,7 @@ const App: React.FC = () => {
         </header>
 
         <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-4 flex-grow">
+          {/* Left Panel */}
           <div className="lg:col-span-4 flex flex-col gap-6">
              <ChatInterface onApplyStrategy={handleAIStrategyApply} />
 
@@ -243,6 +262,7 @@ const App: React.FC = () => {
              />
           </div>
 
+          {/* Right Panel */}
           <div className="lg:col-span-8">
             {error && (
               <div className="mb-4 p-4 bg-white border border-red-200 rounded-2xl flex items-center gap-3 text-red-600 text-sm animate-in fade-in slide-in-from-top-2 shadow-lg">
@@ -261,7 +281,7 @@ const App: React.FC = () => {
               </div>
             ) : (
               <ResultsView 
-                key={ticker} 
+                key={`${ticker}-${startDate}-${endDate}`} // Force re-render on date change
                 result={result} 
                 strategyType={strategy}
               />
@@ -270,7 +290,6 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      {/* Footer 独立在内容区域之外，但因为 flex 布局会自动沉底 */}
       <footer className="relative z-10 w-full py-6 border-t border-white/20 text-center text-slate-600 text-xs font-bold backdrop-blur-md bg-white/40 mt-auto">
         <p>
           Powered by <span className="text-sakura-600 hover:underline cursor-pointer">Yahoo Finance</span> & <span className="text-sky-600 hover:underline cursor-pointer">FastAPI</span>

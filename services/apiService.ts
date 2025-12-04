@@ -1,13 +1,13 @@
 import { StockDataPoint } from '../types';
+import { fetchMockStockData } from './mockDataService'; // 引入 Mock 服务
 
 const API_BASE_URL = 'http://localhost:8000/v1';
 
-// 更新接口定义
 export interface SearchResult {
   symbol: string;
   name: string;
   type: string;
-  exchange: string; // 新增字段
+  exchange: string;
 }
 
 export const searchTickersReal = async (query: string): Promise<SearchResult[]> => {
@@ -28,21 +28,26 @@ export const fetchMarketData = async (
 ): Promise<StockDataPoint[]> => {
   const url = `${API_BASE_URL}/market-data?ticker=${ticker}&start_date=${startDate}&end_date=${endDate}`;
   
-  const response = await fetch(url);
-  
-  // 1. 捕获后端抛出的 404 或 500 错误
-  if (!response.ok) {
-    const errorData = await response.json();
-    // 抛出具体的后端错误信息 (例如 "Ticker not found")
-    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
-  }
+  try {
+    const response = await fetch(url);
+    
+    // 如果后端返回错误（例如 404 或 500），转入 catch 块处理 Fallback
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
-  const data = await response.json();
-  
-  // 2. 前端二次校验：确保不是空数组
-  if (!Array.isArray(data) || data.length === 0) {
-    throw new Error(`No historical data found for ${ticker}.`);
-  }
+    const data = await response.json();
+    
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error(`No historical data found for ${ticker}.`);
+    }
 
-  return data;
+    return data;
+
+  } catch (error) {
+    console.warn(`[API] Failed to fetch real data (${error}). Falling back to Simulation Mode.`);
+    
+    // 核心修复：无缝回退到 Mock 数据，并传入正确的日期范围
+    return await fetchMockStockData(ticker, startDate, endDate, true);
+  }
 };
