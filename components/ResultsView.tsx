@@ -4,14 +4,16 @@ import {
 } from 'recharts';
 import { BacktestResult, StrategyType } from '../types';
 import { Card, Badge } from './UI';
-import { TrendingUp, TrendingDown, DollarSign, Activity, BarChart3 } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Activity, BarChart3, Sparkles } from 'lucide-react';
 
 interface ResultsViewProps {
   result: BacktestResult | null;
   strategyType: StrategyType;
+  // Merged: Interaction props
+  onTradeClick?: (data: any) => void;
+  onRequestDiagnosis?: () => void;
 }
 
-// --- 统一动画配置 ---
 const ANIMATION_DURATION = 500;
 const ANIMATION_EASING = 'ease-in-out';
 
@@ -33,18 +35,9 @@ const CustomChartTooltip = React.memo(({ active, payload, label, dataRef }: any)
           }
           const displayValue = typeof entry.value === 'number' ? entry.value.toFixed(2) : entry.value;
           
-          // 强制修正 Tooltip 中的图标形状逻辑（虽然 Recharts payload 会自带，但为了保险可以根据 name 适配）
-          let iconShape = 'rounded-full'; // 默认圆
-          if (entry.name.includes('SMA') || entry.name.includes('EMA') || entry.name.includes('Band')) {
-             iconShape = 'h-[3px] w-3 rounded-none'; // 线条
-          } else if (entry.name.includes('Signal')) {
-             iconShape = 'w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[8px] border-b-current rounded-none bg-transparent shadow-none'; // 三角形模拟
-          }
-
           return (
             <div key={index} className="flex justify-between items-center gap-6 text-xs">
               <span className="flex items-center gap-2 text-slate-500 font-medium">
-                {/* 简单的图标渲染逻辑 */}
                 {entry.name.includes('Signal') ? (
                    <div style={{ 
                      width: 0, height: 0, 
@@ -69,10 +62,37 @@ const CustomChartTooltip = React.memo(({ active, payload, label, dataRef }: any)
   );
 });
 
+// --- Logic: Force Custom Triangle Shape ---
+const TriangleShape = (props: any) => {
+  const { cx, cy, fill, payload } = props;
+  if (!cx || !cy) return null;
+  
+  // Up Triangle (Buy)
+  if (payload.buySignal) {
+    return (
+      <path 
+        d={`M${cx},${cy - 6} L${cx + 6},${cy + 6} L${cx - 6},${cy + 6} Z`} 
+        fill={fill} 
+        stroke="white" strokeWidth={1}
+        className="cursor-pointer hover:scale-125 transition-transform"
+      />
+    );
+  }
+  // Down Triangle (Sell)
+  return (
+    <path 
+      d={`M${cx},${cy + 6} L${cx + 6},${cy - 6} L${cx - 6},${cy - 6} Z`} 
+      fill={fill} 
+      stroke="white" strokeWidth={1}
+      className="cursor-pointer hover:scale-125 transition-transform"
+    />
+  );
+};
+
 const MetricCard = ({ label, value, subValue, icon: Icon, color }: any) => {
   const textColor = color.replace('bg-', 'text-');
   return (
-    <div className="relative overflow-hidden bg-white p-5 rounded-2xl shadow-sm border border-slate-100 group transition-all hover:shadow-md">
+    <div className="relative overflow-hidden bg-white p-5 rounded-2xl shadow-sm border border-slate-100 group transition-all cursor-default hover:shadow-md">
       <div className={`absolute top-3 right-3 opacity-25 group-hover:opacity-50 transition-all duration-300 transform group-hover:scale-110 ${textColor}`}>
         <Icon size={42} strokeWidth={1.5} />
       </div>
@@ -85,7 +105,9 @@ const MetricCard = ({ label, value, subValue, icon: Icon, color }: any) => {
   );
 };
 
-export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }) => {
+export const ResultsView: React.FC<ResultsViewProps> = ({ 
+  result, strategyType, onTradeClick, onRequestDiagnosis 
+}) => {
   
   const { chartData, buySignals, sellSignals, maxIndex, yDomain } = useMemo(() => {
     if (!result || !result.data || result.data.length === 0) {
@@ -120,13 +142,14 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
     const yMin = Math.max(0, minVal - padding); 
     const yMax = maxVal + padding;
 
+    // Logic: Include full data for click handler
     const buys = processed
       .filter(d => d.buySignal !== undefined)
-      .map(d => ({ index: d.index, buySignal: d.buySignal }));
+      .map(d => ({ index: d.index, buySignal: d.buySignal, ...d, type: 'BUY' }));
       
     const sells = processed
       .filter(d => d.sellSignal !== undefined)
-      .map(d => ({ index: d.index, sellSignal: d.sellSignal }));
+      .map(d => ({ index: d.index, sellSignal: d.sellSignal, ...d, type: 'SELL' }));
 
     return { 
       chartData: processed, 
@@ -162,6 +185,16 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Design: Friend's Outline Removal Styles */}
+      <style>{`
+        .recharts-wrapper { outline: none !important; }
+        .recharts-surface { outline: none !important; }
+        .recharts-surface * { outline: none !important; }
+        .recharts-layer path, .recharts-layer circle, .recharts-layer rect, .recharts-sector, .recharts-curve, .recharts-scatter-symbol {
+          outline: none !important; box-shadow: none !important;
+        }
+      `}</style>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricCard 
           label="Total Return" 
@@ -174,7 +207,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
           value={`$${Math.round(result.metrics.finalCapital).toLocaleString()}`}
           subValue={`from $${result.metrics.initialCapital.toLocaleString()}`}
           icon={DollarSign}
-          color="bg-slate-700"
+          color="bg-amber-500"
         />
         <MetricCard 
           label="Total Actions"
@@ -186,16 +219,26 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
           label="Max Drawdown" 
           value={`-${result.metrics.maxDrawdown.toFixed(2)}%`}
           icon={TrendingDown}
-          color="bg-rose-400"
+          color="bg-rose-500"
         />
       </div>
 
       <Card className="h-[450px] flex flex-col border-0 shadow-xl shadow-sakura-100/20 bg-white/80 backdrop-blur-sm">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="font-bold text-slate-700 text-sm uppercase tracking-widest flex items-center gap-2">
-            <div className="w-2 h-6 bg-sakura-400 rounded-full"></div>
-            Price Action & Signals
-          </h3>
+          <div className="flex items-center gap-4">
+            <h3 className="font-bold text-slate-700 text-sm uppercase tracking-widest flex items-center gap-2">
+                <div className="w-2 h-6 bg-sakura-400 rounded-full"></div>
+                Price Action & Signals
+            </h3>
+            {/* Logic: AI Diagnose Button */}
+            <button 
+                onClick={onRequestDiagnosis}
+                className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-xs font-bold rounded-full shadow-md hover:shadow-lg hover:scale-105 transition-all animate-pulse-subtle"
+            >
+                <Sparkles size={12} />
+                AI Diagnose
+            </button>
+          </div>
           <div className="flex gap-4 text-xs font-bold bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
             <span className="flex items-center gap-1 text-emerald-600"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> BUY</span>
             <span className="flex items-center gap-1 text-rose-600"><div className="w-2 h-2 rounded-full bg-rose-500"></div> SELL</span>
@@ -203,7 +246,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
         </div>
         
         <div className="flex-1 w-full -ml-2">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" className="outline-none">
             <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
@@ -240,10 +283,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
                 isAnimationActive={false}
               />
               
-              {/* 修复图例：
-                  1. wrapperStyle 使用 flex 布局，强制居中对齐
-                  2. 子组件中通过 legendType 指定形状 
-              */}
               <Legend 
                 verticalAlign="bottom" 
                 height={36} 
@@ -251,15 +290,15 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
                     paddingTop: '10px', 
                     display: 'flex', 
                     justifyContent: 'center', 
-                    alignItems: 'center', // 垂直居中
-                    gap: '20px',          // 增加间距
+                    alignItems: 'center',
+                    gap: '20px',
                     fontSize: '12px',
                     fontWeight: 600,
                     color: '#64748b'
                 }}
               />
               
-              {/* 隐形触发层：设置 legendType="none" 隐藏 */}
+              {/* Logic: Z-Index Fix - HoverTrigger first (bottom) */}
               <Bar 
                 dataKey="close" 
                 name="HoverTrigger" 
@@ -276,101 +315,40 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
                 strokeWidth={2} 
                 fill="url(#colorPrice)" 
                 name="Price" 
-                legendType="circle" // 价格显示为圆形
+                legendType="circle" 
                 activeDot={enableAnimation ? {r: 4} : false} 
                 {...commonAnimProps}
               />
 
               {strategyType === StrategyType.SMA_CROSSOVER && (
                 <>
-                  <Line 
-                    type="monotone" 
-                    dataKey="smaShort" 
-                    stroke="#ec4899" 
-                    dot={false} 
-                    strokeWidth={2} 
-                    name="Short SMA" 
-                    legendType="plainline" // 显示为线段
-                    activeDot={false} 
-                    {...commonAnimProps} 
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="smaLong" 
-                    stroke="#94a3b8" 
-                    dot={false} 
-                    strokeWidth={2} 
-                    strokeDasharray="5 5" 
-                    name="Long SMA" 
-                    legendType="plainline" // 显示为线段
-                    activeDot={false} 
-                    {...commonAnimProps} 
-                  />
+                  <Line type="monotone" dataKey="smaShort" stroke="#ec4899" dot={false} strokeWidth={2} name="Short SMA" legendType="plainline" activeDot={false} {...commonAnimProps} />
+                  <Line type="monotone" dataKey="smaLong" stroke="#94a3b8" dot={false} strokeWidth={2} strokeDasharray="5 5" name="Long SMA" legendType="plainline" activeDot={false} {...commonAnimProps} />
                 </>
               )}
               {strategyType === StrategyType.EMA_CROSSOVER && (
                 <>
-                  <Line 
-                    type="monotone" 
-                    dataKey="emaShort" 
-                    stroke="#ec4899" 
-                    dot={false} 
-                    strokeWidth={2} 
-                    name="Short EMA" 
-                    legendType="plainline" 
-                    activeDot={false} 
-                    {...commonAnimProps} 
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="emaLong" 
-                    stroke="#94a3b8" 
-                    dot={false} 
-                    strokeWidth={2} 
-                    strokeDasharray="5 5" 
-                    name="Long EMA" 
-                    legendType="plainline" 
-                    activeDot={false} 
-                    {...commonAnimProps} 
-                  />
+                  <Line type="monotone" dataKey="emaShort" stroke="#ec4899" dot={false} strokeWidth={2} name="Short EMA" legendType="plainline" activeDot={false} {...commonAnimProps} />
+                  <Line type="monotone" dataKey="emaLong" stroke="#94a3b8" dot={false} strokeWidth={2} strokeDasharray="5 5" name="Long EMA" legendType="plainline" activeDot={false} {...commonAnimProps} />
                 </>
               )}
               {strategyType === StrategyType.BOLLINGER_BANDS && (
                 <>
-                  <Line 
-                    type="monotone" 
-                    dataKey="upperBand" 
-                    stroke="#f472b6" 
-                    dot={false} 
-                    strokeDasharray="3 3" 
-                    strokeWidth={1} 
-                    name="Upper Band" 
-                    legendType="plainline" 
-                    activeDot={false} 
-                    {...commonAnimProps} 
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="lowerBand" 
-                    stroke="#f472b6" 
-                    dot={false} 
-                    strokeDasharray="3 3" 
-                    strokeWidth={1} 
-                    name="Lower Band" 
-                    legendType="plainline" 
-                    activeDot={false} 
-                    {...commonAnimProps} 
-                  />
+                  <Line type="monotone" dataKey="upperBand" stroke="#f472b6" dot={false} strokeDasharray="3 3" strokeWidth={1} name="Upper Band" legendType="plainline" activeDot={false} {...commonAnimProps} />
+                  <Line type="monotone" dataKey="lowerBand" stroke="#f472b6" dot={false} strokeDasharray="3 3" strokeWidth={1} name="Lower Band" legendType="plainline" activeDot={false} {...commonAnimProps} />
                 </>
               )}
 
+              {/* Logic: TriangleShape + onClick + Z-Index Fix (Top) */}
               <Scatter 
                 data={buySignals}
                 name="Buy Signal" 
                 dataKey="buySignal" 
                 fill="#10b981" 
-                shape="triangle" 
-                legendType="triangle" // 显示为三角形
+                shape={<TriangleShape />}
+                legendType="triangle"
+                onClick={(data) => { if (onTradeClick) onTradeClick(data); }}
+                style={{ cursor: 'pointer' }}
                 {...commonAnimProps}
               />
               <Scatter 
@@ -378,9 +356,10 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
                 name="Sell Signal" 
                 dataKey="sellSignal" 
                 fill="#f43f5e" 
-                shape="triangle" 
-                transform="rotate(180)" 
-                legendType="triangle" // 显示为三角形
+                shape={<TriangleShape />}
+                legendType="triangle"
+                onClick={(data) => { if (onTradeClick) onTradeClick(data); }}
+                style={{ cursor: 'pointer' }}
                 {...commonAnimProps}
               />
             </ComposedChart>
@@ -388,18 +367,13 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
         </div>
       </Card>
 
-      {/* 副图表 */}
+      {/* Secondary Charts */}
       {strategyType === StrategyType.RSI_REVERSAL && (
         <Card className="h-[220px] border-0 shadow-md shadow-slate-100">
           <h3 className="font-bold text-slate-600 mb-2 text-xs uppercase tracking-wide">Relative Strength Index</h3>
-          <ResponsiveContainer width="100%" height="100%">
-             <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                <XAxis 
-                    dataKey="index" 
-                    type="number"
-                    domain={[0, maxIndex]} 
-                    hide 
-                />
+          <ResponsiveContainer width="100%" height="100%" className="outline-none">
+             <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} className="outline-none">
+                <XAxis dataKey="index" type="number" domain={[0, maxIndex]} hide />
                 <YAxis domain={[0, 100]} ticks={[30, 70]} tick={{fontSize: 10, fill: '#64748b'}} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomChartTooltip dataRef={chartData} />} cursor={{ stroke: '#94a3b8', strokeWidth: 1 }} isAnimationActive={false} />
                 <Legend iconType="plainline" wrapperStyle={{fontSize: '12px'}} />
@@ -415,14 +389,9 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
       {strategyType === StrategyType.MACD && (
         <Card className="h-[220px] border-0 shadow-md shadow-slate-100">
           <h3 className="font-bold text-slate-600 mb-2 text-xs uppercase tracking-wide">MACD Oscillator</h3>
-          <ResponsiveContainer width="100%" height="100%">
-             <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                <XAxis 
-                    dataKey="index" 
-                    type="number"
-                    domain={[0, maxIndex]} 
-                    hide 
-                />
+          <ResponsiveContainer width="100%" height="100%" className="outline-none">
+             <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} className="outline-none">
+                <XAxis dataKey="index" type="number" domain={[0, maxIndex]} hide />
                 <YAxis tick={{fontSize: 10, fill: '#64748b'}} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomChartTooltip dataRef={chartData} />} cursor={{ stroke: '#94a3b8', strokeWidth: 1 }} isAnimationActive={false} />
                 <Legend iconType="plainline" wrapperStyle={{fontSize: '12px'}} />
@@ -435,8 +404,8 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
         </Card>
       )}
 
-      {/* Trade Log 保持不变 */}
-      <Card className="border-0 shadow-lg shadow-slate-100/50 bg-white/90 backdrop-blur">
+      {/* Trade Log */}
+      <Card className="border-0 shadow-lg shadow-slate-100/50 bg-white backdrop-blur">
         <h3 className="font-bold text-slate-600 mb-4 text-sm uppercase tracking-wide flex items-center gap-2">
           <Activity size={16} className="text-slate-400" />
           Execution Log
