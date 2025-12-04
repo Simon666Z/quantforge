@@ -23,8 +23,10 @@ export const DatePicker: React.FC<DatePickerProps> = ({ label, value, onChange }
       selectedDates: [new Date(value)],
       autoClose: true,
       dateFormat: 'yyyy-MM-dd',
-      position: 'bottom',
-      isMobile: false, // 强制使用我们的样式，不使用原生
+      // 修复核心：强制使用 'bottom center' 来确保它在输入框正下方居中，
+      // 使用 as any 忽略 TS 报错
+      position: 'bottom center' as any,
+      isMobile: false, 
       buttons: ['today', 'clear'],
       onSelect: ({ formattedDate }) => {
         if (formattedDate) {
@@ -55,7 +57,6 @@ export const DatePicker: React.FC<DatePickerProps> = ({ label, value, onChange }
            size={16} 
            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-sakura-400 transition-colors pointer-events-none z-10" 
          />
-         {/* 关键修改：type="text" 和 readOnly */}
          <input 
            ref={inputRef}
            readOnly 

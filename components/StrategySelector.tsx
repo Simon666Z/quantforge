@@ -70,10 +70,10 @@ export const StrategySelector: React.FC<StrategySelectorProps> = ({ value, onCha
 
   return (
     <>
-      {/* 1. 触发按钮 */}
+      {/* 1. 触发按钮 - Q弹效果 */}
       <div 
         onClick={() => setIsOpen(true)}
-        className="group relative w-full pl-4 pr-10 py-3 rounded-xl border border-sakura-200 bg-white cursor-pointer hover:border-sakura-400 hover:shadow-lg hover:shadow-sakura-100/50 transition-all duration-300"
+        className="btn-bouncy group relative w-full pl-4 pr-10 py-3 rounded-xl border border-sakura-200 bg-white cursor-pointer hover:border-sakura-400 hover:shadow-lg hover:shadow-sakura-100/50"
       >
         <div className="flex flex-col items-start gap-1">
           <span className="text-[10px] font-bold text-sakura-400 uppercase tracking-widest">Selected Model</span>
@@ -81,17 +81,15 @@ export const StrategySelector: React.FC<StrategySelectorProps> = ({ value, onCha
             {activeStrategy.name}
           </span>
         </div>
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 group-hover:text-sakura-400 transition-colors">
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 group-hover:text-sakura-400 transition-colors duration-300 group-hover:translate-x-1">
           <ChevronRight size={20} />
         </div>
       </div>
 
       {/* 2. Portal 渲染侧滑菜单 */}
-      {/* 重点：不再使用 {isOpen && ...}，而是始终渲染，通过 CSS 控制位置和透明度 */}
       {mounted && createPortal(
         <div className={`fixed inset-0 z-[9999] ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
           
-          {/* 背景遮罩 (Fade In/Out) */}
           <div 
             className={`absolute inset-0 bg-slate-900/20 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${
               isOpen ? 'opacity-100' : 'opacity-0'
@@ -99,22 +97,20 @@ export const StrategySelector: React.FC<StrategySelectorProps> = ({ value, onCha
             onClick={() => setIsOpen(false)}
           />
 
-          {/* 侧滑面板 (Slide In/Out) */}
-          {/* translate-x-0 显示， -translate-x-full 隐藏到屏幕左侧 */}
           <div 
-            className={`absolute top-0 left-0 h-full w-full max-w-[340px] bg-white shadow-2xl flex flex-col transition-transform duration-300 cubic-bezier(0.16, 1, 0.3, 1) ${
+            className={`absolute top-0 left-0 h-full w-full max-w-[340px] bg-white shadow-2xl flex flex-col transition-transform duration-500 cubic-bezier(0.16, 1, 0.3, 1) ${
               isOpen ? 'translate-x-0' : '-translate-x-full'
             }`}
           >
             {/* Header */}
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-sakura-50/50 to-white">
               <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                <Sparkles className="text-sakura-400" size={18} />
+                <Sparkles className="text-sakura-400 animate-spin-slow" size={18} />
                 Select Strategy
               </h3>
               <button 
                 onClick={() => setIsOpen(false)}
-                className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                className="btn-bouncy p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600"
               >
                 <X size={20} />
               </button>
@@ -130,14 +126,14 @@ export const StrategySelector: React.FC<StrategySelectorProps> = ({ value, onCha
                   <button
                     key={strategy.id}
                     onClick={() => handleSelect(strategy.id)}
-                    className={`w-full text-left p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden ${
+                    className={`btn-bouncy w-full text-left p-4 rounded-xl border transition-all duration-300 group relative overflow-hidden ${
                       isActive 
-                        ? 'border-sakura-300 bg-sakura-50/80 shadow-sm' 
+                        ? 'border-sakura-300 bg-sakura-50/80 shadow-md scale-[1.02]' 
                         : 'border-transparent bg-slate-50 hover:bg-white hover:border-slate-200 hover:shadow-md'
                     }`}
                   >
                     <div className="flex items-start gap-3 relative z-10">
-                      <div className={`p-2 rounded-lg ${strategy.color}`}>
+                      <div className={`p-2 rounded-lg transition-transform duration-300 group-hover:scale-110 ${strategy.color}`}>
                         <Icon size={20} />
                       </div>
                       <div>
@@ -150,14 +146,13 @@ export const StrategySelector: React.FC<StrategySelectorProps> = ({ value, onCha
                       </div>
                     </div>
                     {isActive && (
-                       <div className="absolute right-0 top-0 bottom-0 w-1 bg-sakura-400"></div>
+                       <div className="absolute right-0 top-0 bottom-0 w-1 bg-sakura-400 shadow-[0_0_10px_rgba(236,72,153,0.5)]"></div>
                     )}
                   </button>
                 );
               })}
             </div>
 
-            {/* Footer */}
             <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
                  <span className="text-[10px] uppercase font-bold text-slate-300 tracking-widest">QuantForge v1.0</span>
             </div>

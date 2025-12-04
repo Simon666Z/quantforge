@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import '/src/index.css'; // <--- 核心修复：必须引入全局样式！
 import App from './App';
 
 const rootElement = document.getElementById('root');
