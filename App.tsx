@@ -224,6 +224,18 @@ const App: React.FC = () => {
                         </div>
                     </header>
                 </div>
+
+                <div
+                    className="w-full absolute bottom-[-30px] left-0 z-20 pointer-events-none"
+                    style={{
+                        height: '30px',
+                        // 这个渐变创造了向下凸起的半圆（云朵效果），颜色匹配上面的 bg-white/80
+                        backgroundImage: 'radial-gradient(ellipse 60px 45px at 50% 0, rgba(255,255,255,0.8) 30px, transparent 31px)',
+                        backgroundSize: '60px 60px',
+                        backgroundPosition: '0px 0px',
+                        backgroundRepeat: 'repeat-x'
+                    }}
+                />
             </div>
 
             <div className="relative z-10 w-full max-w-7xl mx-auto p-4 md:p-8 flex flex-col mt-8">

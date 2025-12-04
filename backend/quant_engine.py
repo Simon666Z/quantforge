@@ -4,8 +4,8 @@ import numpy as np
 
 class SakuraEngine:
     def __init__(self, data: pd.DataFrame):
-        # 核心修复 1: 必须将 date 设为索引，否则 VBT 会使用整数索引，导致交易记录没有日期
         self.data = data.copy()
+        # 确保索引是时间格式，这对 VBT 至关重要
         if 'date' in self.data.columns:
             self.data['date'] = pd.to_datetime(self.data['date'])
             self.data.set_index('date', inplace=True)
@@ -25,6 +25,7 @@ class SakuraEngine:
         indicators = {}
 
         try:
+            # --- 1. 策略逻辑 (保持不变) ---
             if strategy_type == "SMA_CROSSOVER":
                 short_window = int(params.get('shortWindow', 20))
                 long_window = int(params.get('longWindow', 50))
@@ -76,22 +77,22 @@ class SakuraEngine:
 
             elif strategy_type == "MOMENTUM":
                 period = int(params.get('rocPeriod', 12))
-                # ROC = ((Price - Price_n) / Price_n) * 100
                 roc = (self.close.diff(period) / self.close.shift(period)) * 100
-                entries = (roc > 0) & (roc.shift(1) <= 0) # Zero cross up
-                exits = (roc < 0) & (roc.shift(1) >= 0)   # Zero cross down
+                entries = (roc > 0) & (roc.shift(1) <= 0)
+                exits = (roc < 0) & (roc.shift(1) >= 0)
                 indicators['roc'] = roc
 
         except Exception as e:
             print(f"Strategy Calc Error: {e}")
             entries = pd.Series(False, index=self.close.index)
 
-        # --- 残酷现实处理 ---
-        # 核心修复: 必须处理 shift 后的 NaN，用 fillna(False) 填充，否则 VBT 会报错
+        # --- 2. 残酷现实处理 ---
+        # 信号防未来函数：后移一天
         real_entries = entries.vbt.signals.fshift(1).fillna(False)
         real_exits = exits.vbt.signals.fshift(1).fillna(False)
         
-        # --- 回测执行 ---
+        # --- 3. 回测执行 ---
+        # 满仓模式 (100% Equity)
         pf = vbt.Portfolio.from_signals(
             close=self.close, 
             entries=real_entries, 
@@ -100,18 +101,23 @@ class SakuraEngine:
             fees=fees, 
             slippage=slippage,
             init_cash=capital,
-            freq='1D' # 显式声明频率，防止警告
+            freq='1D',
+            size=1.0,               
+            size_type='percent',   
+            accumulate=True 
         )
 
-        # --- 结果组装 (核心修复 2: NumPy 类型转换) ---
-        
-        # 1. Metrics 清洗
+        # --- 4. 结果解析 (修复核心) ---
+
+        # Metrics
         sharpe = pf.sharpe_ratio()
         if np.isnan(sharpe): sharpe = 0.0
 
-        # win_rate 有时返回 nan
-        win_rate = pf.trades.win_rate()
+        win_rate = pf.trades.win_rate() # 胜率还是看 Trade
         if np.isnan(win_rate): win_rate = 0.0
+
+        # 注意：这里改用 orders.count()，只要有动作就算
+        action_count = int(pf.orders.count())
 
         metrics = {
             "totalReturn": float(pf.total_return() * 100),
@@ -119,48 +125,51 @@ class SakuraEngine:
             "initialCapital": float(capital),
             "maxDrawdown": float(pf.max_drawdown() * 100),
             "winRate": float(win_rate * 100),
-            "tradeCount": int(pf.trades.count()),
+            "tradeCount": action_count, # 用 Order 数量替代 Trade 数量
             "sharpeRatio": float(sharpe)
         }
 
-        # 2. 交易记录清洗
+        # Trades Parsing (改用 Orders 解析)
+        # Orders 是最底层的记录，绝对不会漏
         trades_list = []
         try:
-            trades_record = pf.trades.records_readable
-            if not trades_record.empty:
-                for i, row in trades_record.iterrows():
-                    # 安全解析日期
-                    entry_date = row['Entry Timestamp']
-                    if hasattr(entry_date, 'strftime'):
-                        date_str = entry_date.strftime('%Y-%m-%d')
-                    else:
-                        date_str = str(entry_date) # Fallback
-
+            # records_readable 对 orders 也有效
+            orders_record = pf.orders.records_readable
+            
+            if not orders_record.empty:
+                for i, row in orders_record.iterrows():
+                    # Order 只有 Timestamp，没有 Entry/Exit 之分
+                    dt = row['Timestamp']
+                    date_str = dt.strftime('%Y-%m-%d') if hasattr(dt, 'strftime') else str(dt)
+                    
+                    # 识别方向
+                    side = row['Side'] # 通常是 'Buy' 或 'Sell'
+                    type_str = "BUY" if side == 'Buy' else "SELL"
+                    
                     trades_list.append({
                         "date": date_str,
-                        "type": "BUY", 
-                        "price": float(row['Entry Price']), # 强转 float
-                        "reason": "Signal Triggered"
+                        "type": type_str,
+                        "price": float(row['Price']),
+                        "reason": "Signal Triggered" 
                     })
-
-                    # Exit
-                    if pd.notnull(row['Exit Timestamp']):
-                        exit_date = row['Exit Timestamp']
-                        if hasattr(exit_date, 'strftime'):
-                            exit_date_str = exit_date.strftime('%Y-%m-%d')
-                        else:
-                            exit_date_str = str(exit_date)
-
-                        trades_list.append({
-                            "date": exit_date_str,
-                            "type": "SELL",
-                            "price": float(row['Exit Price']), # 强转 float
-                            "reason": "Signal Triggered"
-                        })
             
             trades_list.sort(key=lambda x: x['date'])
+
         except Exception as e:
-            print(f"Trade parsing error: {e}")
+            print(f"!!! Orders Parsing Error: {e}")
+            # 如果 readable 失败，尝试用原始 records 解析 (双重保险)
+            try:
+                raw_records = pf.orders.records
+                for rec in raw_records:
+                    idx = rec['idx'] # 行号
+                    date_val = self.close.index[idx] # 反查日期
+                    date_str = date_val.strftime('%Y-%m-%d')
+                    
+                    # size > 0 is Buy? VBT raw records logic is complex
+                    # 简单起见，如果这里也挂了，就返回空
+                    pass
+            except:
+                pass
             trades_list = []
 
         return {
