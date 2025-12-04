@@ -1,0 +1,68 @@
+/* src/styles/datepicker.css */
+
+:root {
+  --adp-font-size: 14px;
+  --adp-width: 260px;
+  --adp-background-color: rgba(255, 255, 255, 0.98);
+  --adp-background-color-hover: #fff1f2; 
+  --adp-background-color-active: #fce7f3; 
+  --adp-background-color-in-range: rgba(236, 72, 153, 0.1);
+  --adp-background-color-selected: #ec4899; 
+  --adp-background-color-selected-hover: #db2777; 
+  --adp-color: #475569;
+  --adp-color-secondary: #94a3b8;
+  --adp-accent-color: #ec4899;
+  --adp-color-current-date: #ec4899;
+  --adp-border-color: #f1f5f9;
+  --adp-border-radius: 16px;
+  --adp-day-cell-height: 34px;
+  --adp-z-index: 10000; /* 提高层级 */
+}
+
+.air-datepicker {
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.1), 
+    0 10px 10px -5px rgba(0, 0, 0, 0.04),
+    0 0 0 1px rgba(236, 72, 153, 0.1); /* 樱花粉微边框 */
+  backdrop-filter: blur(12px);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  
+  /* 初始状态：稍微缩小，向下偏移，完全透明 */
+  opacity: 0;
+  transform: scale(0.95) translateY(10px);
+  
+  /* 过渡效果：贝塞尔曲线让其更有弹性 */
+  transition: opacity 0.25s ease-out, transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* 激活状态：air-datepicker 插件会在显示时添加 -active- 类 */
+.air-datepicker.-active- {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+/* 其他美化 */
+.air-datepicker-nav--action:hover {
+  background-color: var(--adp-background-color-hover);
+  color: var(--adp-accent-color);
+  border-radius: 8px;
+}
+
+.air-datepicker-nav--title:hover {
+  background-color: var(--adp-background-color-hover);
+  color: var(--adp-accent-color);
+  border-radius: 8px;
+}
+
+.air-datepicker-cell.-selected- {
+  background: var(--adp-accent-color);
+  box-shadow: 0 4px 6px -1px rgba(236, 72, 153, 0.4);
+}
+
+.air-datepicker-body--day-name {
+  color: var(--adp-accent-color);
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}

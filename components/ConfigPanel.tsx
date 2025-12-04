@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StrategyType, StrategyParams } from '../types';
 import { Card, Label } from './UI';
-import { DatePicker } from './DatePicker';
+import { DatePicker } from './DatePicker'; // 使用新的 DatePicker
+import { StrategySelector } from './StrategySelector'; // 使用新的 StrategySelector
 import { TickerSearch } from './TickerSearch';
 import { Settings2, DollarSign } from 'lucide-react';
 
@@ -19,14 +20,13 @@ interface ConfigPanelProps {
   onRun: () => void;
 }
 
-// ----------------------------------------------------------------------
-// 1. 新增：带缓冲功能的滑条组件
-//    只有在 onMouseUp / onTouchEnd 时才触发 commitChange
-// ----------------------------------------------------------------------
+// ... (保留 ParamSlider 组件代码不变) ... 
+// 为了节省篇幅，这里假设 ParamSlider 代码还在，请不要删除它
+
 interface ParamSliderProps {
   label: string;
   value: number;
-  onChange: (val: number) => void; // 这里的 onChange 实际上是 "onCommit"
+  onChange: (val: number) => void;
   min: number;
   max: number;
   step?: number;
@@ -37,77 +37,38 @@ interface ParamSliderProps {
 const ParamSlider: React.FC<ParamSliderProps> = ({ 
   label, value, onChange, min, max, step = 1, colorTheme = 'sakura', suffix = '' 
 }) => {
-  // 内部状态，用于实时响应拖拽，不阻塞主线程
-  const [localValue, setLocalValue] = useState(value);
-  
-  // 当父组件通过 AI 策略或其他方式修改 params 时，同步更新内部状态
-  useEffect(() => {
-    setLocalValue(value);
-  }, [value]);
+    // ... (保持 ParamSlider 实现不变)
+    const [localValue, setLocalValue] = useState(value);
+    useEffect(() => { setLocalValue(value); }, [value]);
+    const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => { setLocalValue(parseFloat(e.target.value)); };
+    const handleCommit = () => { if (localValue !== value) onChange(localValue); };
+    
+    const colorStyles = {
+        sakura: { badge: 'bg-sakura-50 text-sakura-600', accent: 'accent-sakura-400' },
+        sky:    { badge: 'bg-sky-50 text-sky-600',       accent: 'accent-sky-400' },
+        emerald:{ badge: 'bg-emerald-50 text-emerald-600', accent: 'accent-emerald-400' },
+        rose:   { badge: 'bg-rose-50 text-rose-600',     accent: 'accent-rose-400' },
+        slate:  { badge: 'bg-slate-100 text-slate-600',  accent: 'accent-slate-400' },
+    };
+    const theme = colorStyles[colorTheme] || colorStyles.sakura;
 
-  // 处理拖拽过程（只更新显示）
-  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLocalValue(parseFloat(e.target.value));
-  };
-
-  // 处理松手（提交真实数据，触发回测）
-  const handleCommit = () => {
-    if (localValue !== value) {
-      onChange(localValue);
-    }
-  };
-
-  // 样式映射
-  const colorStyles = {
-    sakura: { badge: 'bg-sakura-50 text-sakura-600', accent: 'accent-sakura-400' },
-    sky:    { badge: 'bg-sky-50 text-sky-600',       accent: 'accent-sky-400' },
-    emerald:{ badge: 'bg-emerald-50 text-emerald-600', accent: 'accent-emerald-400' },
-    rose:   { badge: 'bg-rose-50 text-rose-600',     accent: 'accent-rose-400' },
-    slate:  { badge: 'bg-slate-100 text-slate-600',  accent: 'accent-slate-400' },
-  };
-  const theme = colorStyles[colorTheme] || colorStyles.sakura;
-
-  return (
-    <div>
-      <div className="flex justify-between text-xs mb-2 text-slate-500">
-        <span>{label}</span>
-        <span className={`font-mono font-bold px-2 rounded ${theme.badge}`}>
-          {localValue}{suffix}
-        </span>
-      </div>
-      <input 
-        type="range" 
-        min={min} 
-        max={max} 
-        step={step}
-        value={localValue}
-        onChange={handleInput}       // 实时：更新数字显示
-        onMouseUp={handleCommit}     // 鼠标松开：触发重绘
-        onTouchEnd={handleCommit}    // 触摸结束：触发重绘
-        className={`w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer hover:bg-slate-200 transition-colors ${theme.accent}`}
-      />
-    </div>
-  );
+    return (
+        <div>
+        <div className="flex justify-between text-xs mb-2 text-slate-500">
+            <span>{label}</span>
+            <span className={`font-mono font-bold px-2 rounded ${theme.badge}`}>
+            {localValue}{suffix}
+            </span>
+        </div>
+        <input 
+            type="range" min={min} max={max} step={step} value={localValue}
+            onChange={handleInput} onMouseUp={handleCommit} onTouchEnd={handleCommit}
+            className={`w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer hover:bg-slate-200 transition-colors ${theme.accent}`}
+        />
+        </div>
+    );
 };
 
-// ----------------------------------------------------------------------
-
-const StrategyDescription = ({ type }: { type: StrategyType }) => {
-  const content = {
-    [StrategyType.SMA_CROSSOVER]: "SMA. Classic trend following. Buys when short-term average rises above long-term.",
-    [StrategyType.EMA_CROSSOVER]: "EMA. Weighted moving averages that react faster to price action than SMA.",
-    [StrategyType.RSI_REVERSAL]: "RSI. Mean reversion strategy. Buys oversold dips and sells overbought peaks.",
-    [StrategyType.BOLLINGER_BANDS]: "Bollinger. Volatility based. Buys at lower band support, sells at upper band resistance.",
-    [StrategyType.MACD]: "MACD. Momentum oscillator. Triggers on signal line crossovers and histogram shifts.",
-    [StrategyType.MOMENTUM]: "ROC. Pure momentum. Buys when rate-of-change turns positive, sells when negative.",
-  };
-
-  return (
-    <div className="mt-3 text-xs text-sky-600 bg-sky-50/50 p-4 rounded-xl border border-sky-100 leading-relaxed backdrop-blur-sm">
-      <span className="font-bold mr-1">💡 Logic:</span> {content[type]}
-    </div>
-  );
-};
 
 const DateQuickSelect = ({ label, onClick }: { label: string, onClick: () => void }) => (
   <button 
@@ -164,7 +125,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
            </div>
         </div>
 
-        {/* Date Selection */}
+        {/* Date Selection - Updated with new DatePicker */}
         <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100">
            <div className="flex justify-between items-center mb-4">
              <Label>Timeline</Label>
@@ -186,29 +147,14 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
 
         <div className="w-full h-px bg-gradient-to-r from-transparent via-sakura-100 to-transparent"></div>
 
-        {/* Strategy Selection */}
+        {/* Strategy Selection - Replaced with new StrategySelector */}
         <div>
-          <Label>Strategy Model</Label>
-          <div className="relative">
-            <select 
-              value={strategy} 
-              onChange={(e) => setStrategy(e.target.value as StrategyType)}
-              className="w-full pl-4 pr-10 py-3 rounded-xl border border-sakura-200 bg-white focus:border-sakura-400 outline-none text-slate-600 appearance-none cursor-pointer hover:border-sakura-300 transition-colors font-medium shadow-sm"
-            >
-              <option value={StrategyType.SMA_CROSSOVER}>SMA Crossover</option>
-              <option value={StrategyType.EMA_CROSSOVER}>EMA Crossover</option>
-              <option value={StrategyType.RSI_REVERSAL}>RSI Mean Reversion</option>
-              <option value={StrategyType.BOLLINGER_BANDS}>Bollinger Bands</option>
-              <option value={StrategyType.MACD}>MACD Momentum</option>
-              <option value={StrategyType.MOMENTUM}>Rate of Change (ROC)</option>
-            </select>
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-sakura-400">▼</div>
-          </div>
-          <StrategyDescription type={strategy} />
+            {/* 不需要额外的 Label，因为 Selector 内部已经包含视觉引导 */}
+            <StrategySelector value={strategy} onChange={setStrategy} />
         </div>
 
-        {/* Dynamic Parameters - 使用新的 ParamSlider 组件 */}
-        <div className="space-y-6 bg-white p-4 rounded-xl border border-sakura-100 shadow-sm">
+        {/* Dynamic Parameters - ParamSlider */}
+        <div className="space-y-6 bg-white p-4 rounded-xl border border-sakura-100 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
           <Label>Parameters</Label>
           
           {(strategy === StrategyType.SMA_CROSSOVER || strategy === StrategyType.EMA_CROSSOVER) && (

@@ -11,6 +11,37 @@ interface ResultsViewProps {
   strategyType: StrategyType;
 }
 
+// ... (保持 CustomChartTooltip 和 MetricCard 组件代码不变) ...
+
+const CustomChartTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload || !payload.length) return null;
+
+  return (
+    <div className="bg-white/95 backdrop-blur-md p-4 border border-slate-100 shadow-xl rounded-xl min-w-[160px] animate-in fade-in zoom-in-95 duration-200">
+      <p className="font-bold text-slate-700 mb-2 border-b border-slate-100 pb-2 text-sm font-mono">
+        {label}
+      </p>
+      <div className="flex flex-col gap-1.5">
+        {payload.map((entry: any, index: number) => {
+          if (entry.name === 'date' || entry.value === null || entry.value === undefined) {
+            return null;
+          }
+          const displayValue = typeof entry.value === 'number' ? entry.value.toFixed(2) : entry.value;
+          return (
+            <div key={index} className="flex justify-between items-center gap-6 text-xs">
+              <span className="flex items-center gap-2 text-slate-500 font-medium">
+                <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: entry.color }} />
+                {entry.name}
+              </span>
+              <span className="font-mono font-bold text-slate-700">{displayValue}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const MetricCard = ({ label, value, subValue, icon: Icon, color }: any) => {
   const textColor = color.replace('bg-', 'text-');
   return (
@@ -28,11 +59,10 @@ const MetricCard = ({ label, value, subValue, icon: Icon, color }: any) => {
 };
 
 export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }) => {
-  // --- 空状态 / 占位符 ---
   if (!result) {
     return (
       <div className="h-[500px] flex items-center justify-center flex-col gap-6 bg-white/30 border border-slate-100 rounded-3xl backdrop-blur-sm">
-        <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 shadow-inner border border-slate-100">
+        <div className="w-2 h-24 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 shadow-inner border border-slate-100">
           <BarChart3 size={48} />
         </div>
         <div className="text-center">
@@ -64,8 +94,8 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
           color="bg-slate-700"
         />
         <MetricCard 
-          label="Trades Executed" 
-          value={result.metrics.tradeCount}
+          label="Total Actions" /* 修改了标签以匹配新含义 */
+          value={result.trades.length} /* 修改核心：使用 trades 数组的长度 */
           icon={Activity}
           color="bg-sky-500"
         />
@@ -92,7 +122,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
         
         <div className="flex-1 w-full -ml-2">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data}>
+            <ComposedChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.1}/>
@@ -101,7 +131,9 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
               </defs>
               <XAxis dataKey="date" minTickGap={50} tick={{fontSize: 10, fill: '#64748b'}} tickLine={false} axisLine={{stroke: '#f1f5f9'}} />
               <YAxis domain={['auto', 'auto']} tick={{fontSize: 10, fill: '#64748b'}} tickLine={false} axisLine={{stroke: '#f1f5f9'}} tickFormatter={(val) => `$${val}`} />
-              <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }} labelStyle={{ color: '#64748b', fontWeight: 'bold', marginBottom: '8px' }} formatter={(val: any) => typeof val === 'number' ? val.toFixed(2) : val} />
+              
+              <Tooltip content={<CustomChartTooltip />} cursor={{ stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '4 4' }} />
+              
               <Legend iconType="circle" wrapperStyle={{fontSize: '12px', paddingTop: '15px'}} />
               
               <Area type="monotone" dataKey="close" stroke="#38bdf8" strokeWidth={2} fill="url(#colorPrice)" name="Price" activeDot={{r: 4}} />
@@ -137,13 +169,13 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
         <Card className="h-[220px] border-0 shadow-md shadow-slate-100">
           <h3 className="font-bold text-slate-600 mb-2 text-xs uppercase tracking-wide">Relative Strength Index</h3>
           <ResponsiveContainer width="100%" height="100%">
-             <LineChart data={data}>
+             <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                 <XAxis dataKey="date" hide />
                 <YAxis domain={[0, 100]} ticks={[30, 70]} tick={{fontSize: 10, fill: '#64748b'}} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none' }} />
-                <Line type="monotone" dataKey="rsi" stroke="#ec4899" dot={false} strokeWidth={2} />
-                <Line type="monotone" dataKey={() => 70} stroke="#f43f5e" strokeDasharray="3 3" strokeWidth={1} dot={false} />
-                <Line type="monotone" dataKey={() => 30} stroke="#10b981" strokeDasharray="3 3" strokeWidth={1} dot={false} />
+                <Tooltip content={<CustomChartTooltip />} cursor={{ stroke: '#94a3b8', strokeWidth: 1 }} />
+                <Line type="monotone" dataKey="rsi" stroke="#ec4899" dot={false} strokeWidth={2} name="RSI" />
+                <Line type="monotone" dataKey={() => 70} stroke="#f43f5e" strokeDasharray="3 3" strokeWidth={1} dot={false} name="Overbought" />
+                <Line type="monotone" dataKey={() => 30} stroke="#10b981" strokeDasharray="3 3" strokeWidth={1} dot={false} name="Oversold" />
              </LineChart>
           </ResponsiveContainer>
         </Card>
@@ -153,10 +185,10 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
         <Card className="h-[220px] border-0 shadow-md shadow-slate-100">
           <h3 className="font-bold text-slate-600 mb-2 text-xs uppercase tracking-wide">MACD Oscillator</h3>
           <ResponsiveContainer width="100%" height="100%">
-             <ComposedChart data={data}>
+             <ComposedChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                 <XAxis dataKey="date" hide />
                 <YAxis tick={{fontSize: 10, fill: '#64748b'}} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none' }} />
+                <Tooltip content={<CustomChartTooltip />} cursor={{ stroke: '#94a3b8', strokeWidth: 1 }} />
                 <Bar dataKey="macdHist" fill="#bae6fd" name="Histogram" />
                 <Line type="monotone" dataKey="macd" stroke="#0ea5e9" dot={false} strokeWidth={2} name="MACD" />
                 <Line type="monotone" dataKey="macdSignal" stroke="#ec4899" dot={false} strokeWidth={2} name="Signal" />
