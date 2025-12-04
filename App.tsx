@@ -1,13 +1,12 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ConfigPanel } from './components/ConfigPanel';
 import { ResultsView } from './components/ResultsView';
 import { ChatInterface, ChatInterfaceRef } from './components/ChatInterface';
-import { StrategyType, StrategyParams, DEFAULT_PARAMS, StockDataPoint, BacktestResult } from './types';
-import { fetchMarketData } from './services/apiService';
+import { StrategyType, StrategyParams, DEFAULT_PARAMS, BacktestResult } from './types';
 import { runBacktest } from './services/quantEngine';
-// Logic: Re-added missing AI imports
 import { generateBacktestReport, analyzeTradeContext } from './services/geminiService';
 import { AlertCircle, RefreshCcw, X, Users, Code2, Database, Palette, Hammer } from 'lucide-react';
+import { MarketBar } from './components/MarketBar'; // 导入新组件
 
 const App: React.FC = () => {
     const today = new Date();
@@ -27,7 +26,10 @@ const App: React.FC = () => {
     const [strategy, setStrategy] = useState<StrategyType>(StrategyType.SMA_CROSSOVER);
     const [params, setParams] = useState<StrategyParams>(DEFAULT_PARAMS);
 
-    const [rawData, setRawData] = useState<StockDataPoint[] | null>(null);
+    // New Reality Check State
+    const [fees, setFees] = useState(0.1); // %
+    const [slippage, setSlippage] = useState(0.05); // %
+
     const [result, setResult] = useState<BacktestResult | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -35,12 +37,9 @@ const App: React.FC = () => {
     const [showCredits, setShowCredits] = useState(false);
     const [isCreditsMounted, setIsCreditsMounted] = useState(false);
 
-    // Logic: Re-added chatRef
     const chatRef = useRef<ChatInterfaceRef>(null);
 
     // --- Effects ---
-
-    // Handle Credits Modal Animation
     useEffect(() => {
         if (showCredits) {
             setIsCreditsMounted(true);
@@ -50,69 +49,48 @@ const App: React.FC = () => {
         }
     }, [showCredits]);
 
-    // Main Data Fetching Function
-    const handleFetchData = useCallback(async (symbolOverride?: string) => {
-        const activeTicker = symbolOverride || ticker;
-        if (!activeTicker) return;
+    // Main Calculation Function (Fetches Data AND Runs Backtest on Server)
+    useEffect(() => {
+        const executeBacktest = async () => {
+            if (!ticker) return;
 
-        setLoading(true);
-        setError(null);
+            setLoading(true);
+            setError(null);
 
-        try {
-            console.log(`[App] Fetching data for: ${activeTicker} (${startDate} to ${endDate})`);
+            try {
+                console.log(`[App] Running backtest for: ${ticker} (${startDate} to ${endDate})`);
+                
+                const backtestResult = await runBacktest(
+                    [], 
+                    strategy,
+                    params,
+                    { start: startDate, end: endDate },
+                    ticker,
+                    fees / 100,     // Convert % to decimal
+                    slippage / 100  // Convert % to decimal
+                );
 
-            const startObj = new Date(startDate);
-            startObj.setDate(startObj.getDate() - 250); 
-            const bufferStartDate = formatDate(startObj);
+                if (!backtestResult) {
+                    throw new Error("Backtest returned no result.");
+                }
 
-            const data = await fetchMarketData(activeTicker, bufferStartDate, endDate);
-
-            if (!data || data.length === 0) {
-                throw new Error("Received empty data from API.");
+                setResult(backtestResult);
+            } catch (err: any) {
+                console.error("App Execution Error:", err);
+                setError(err.message || "Failed to execute backtest.");
+                setResult(null);
+            } finally {
+                setLoading(false);
             }
+        };
 
-            setRawData(data);
-        } catch (err: any) {
-            console.error("App Fetch Error:", err);
-            setError(err.message || "Failed to load market data.");
-            setRawData(null);
-        } finally {
-            setLoading(false);
-        }
-    }, [ticker, startDate, endDate]);
-
-    // Auto Refresh
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            handleFetchData();
-        }, 500);
-
+        // Debounce to prevent spamming server
+        const timer = setTimeout(executeBacktest, 600);
         return () => clearTimeout(timer);
-    }, [startDate, endDate, handleFetchData]);
 
-    // Initial Load
-    useEffect(() => {
-        handleFetchData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // Run Backtest
-    useEffect(() => {
-        if (rawData && rawData.length > 0) {
-            const backtestResult = runBacktest(
-                [...rawData], // Clone to avoid mutation
-                strategy,
-                params,
-                { start: startDate, end: endDate }
-            );
-            setResult(backtestResult);
-        } else {
-            setResult(null);
-        }
-    }, [rawData, strategy, params, startDate, endDate]);
+    }, [ticker, startDate, endDate, strategy, params, fees, slippage]);
 
     // --- Logic: AI Handlers ---
-
     const handleRunDiagnosis = async () => {
         if (!result || !chatRef.current) return;
         
@@ -137,7 +115,7 @@ const App: React.FC = () => {
     };
     
     const handleTradeClick = async (data: any) => {
-        if (!chatRef.current || !rawData) return;
+        if (!chatRef.current || !result) return;
         
         const apiKey = chatRef.current.getApiKey();
         if (!apiKey) {
@@ -156,7 +134,8 @@ const App: React.FC = () => {
           reason: "Manual click analysis"
         };
     
-        const analysis = await analyzeTradeContext(tradeInfo as any, rawData, strategy, apiKey);
+        // We need to pass the full data array from result to the AI service
+        const analysis = await analyzeTradeContext(tradeInfo as any, result.data, strategy, apiKey);
         
         chatRef.current.setLoading(false);
         chatRef.current.addMessage(analysis, "ai");
@@ -165,7 +144,6 @@ const App: React.FC = () => {
     const handleTickerCommit = (newTicker: string) => {
         if (newTicker !== ticker) {
             setTicker(newTicker);
-            setTimeout(() => handleFetchData(newTicker), 0);
         }
     };
 
@@ -176,13 +154,14 @@ const App: React.FC = () => {
             setEndDate(INITIAL_END);
             setStrategy(StrategyType.SMA_CROSSOVER);
             setParams(DEFAULT_PARAMS);
+            setFees(0.1);
+            setSlippage(0.05);
             setTimeout(() => window.location.reload(), 100);
         }
     };
 
     const handleAIStrategyApply = (newStrat: StrategyType, newParams: StrategyParams) => {
         console.log("App: Applying AI Strategy:", newStrat, newParams);
-        // Force refresh
         setResult(null);
         setStrategy(newStrat);
         setParams({ ...newParams });
@@ -245,17 +224,6 @@ const App: React.FC = () => {
                         </div>
                     </header>
                 </div>
-
-                <div
-                    className="w-full h-6 absolute bottom-[-30px] z-20 pointer-events-none"
-                    style={{
-                        height: '30px',
-                        backgroundImage: 'radial-gradient(ellipse 60px 45px at 50% 0, rgba(255,255,255,0.8) 30px, transparent 31px)',
-                        backgroundSize: '60px 60px',
-                        backgroundPosition: '0px 0px',
-                        backgroundRepeat: 'repeat-x'
-                    }}
-                />
             </div>
 
             <div className="relative z-10 w-full max-w-7xl mx-auto p-4 md:p-8 flex flex-col mt-8">
@@ -299,75 +267,67 @@ const App: React.FC = () => {
                 )}
 
                 <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-4 flex-grow">
-                    <div className="lg:col-span-4 flex flex-col gap-6">
-                        {/* Logic: Pass Ref to Chat */}
-                        <ChatInterface 
-                            ref={chatRef}
-                            onApplyStrategy={handleAIStrategyApply} 
-                        />
+                  
+                  {/* Left Column: Chat + Config */}
+                  <div className="lg:col-span-4 flex flex-col gap-6">
+                      <ChatInterface 
+                          ref={chatRef}
+                          onApplyStrategy={handleAIStrategyApply} 
+                      />
 
-                        <ConfigPanel
-                            ticker={ticker}
-                            onTickerCommit={handleTickerCommit}
-                            strategy={strategy}
-                            setStrategy={setStrategy}
-                            params={params}
-                            setParams={setParams}
-                            startDate={startDate}
-                            setStartDate={setStartDate}
-                            endDate={endDate}
-                            setEndDate={setEndDate}
-                            onRun={() => handleFetchData()}
-                        />
-                    </div>
+                      <ConfigPanel
+                          // 移除了 ticker/date 相关的 props
+                          strategy={strategy}
+                          setStrategy={setStrategy}
+                          params={params}
+                          setParams={setParams}
+                          onRun={() => {}} 
+                          fees={fees}
+                          setFees={setFees}
+                          slippage={slippage}
+                          setSlippage={setSlippage}
+                      />
+                  </div>
 
-                    <div className="lg:col-span-8">
-                        {error && (
-                            <div className="mb-4 p-4 bg-white border border-red-200 rounded-2xl flex items-center gap-3 text-red-600 text-sm animate-in fade-in slide-in-from-top-2 shadow-lg">
-                                <AlertCircle size={20} />
-                                <span className="font-bold">Error:</span>
-                                <span>{error}</span>
-                            </div>
-                        )}
+                  {/* Right Column: MarketBar + Metrics + Charts */}
+                  <div className="lg:col-span-8 flex flex-col gap-6">
+                      
+                      {/* --- NEW: Market Bar (Top) --- */}
+                      <MarketBar 
+                          ticker={ticker}
+                          onTickerCommit={handleTickerCommit}
+                          startDate={startDate}
+                          setStartDate={setStartDate}
+                          endDate={endDate}
+                          setEndDate={setEndDate}
+                      />
 
-                        {loading ? (
-                            <div className="h-[600px] flex items-center justify-center flex-col gap-6 text-sakura-400 animate-pulse bg-white/90 backdrop-blur-sm rounded-[2rem] border border-sakura-100 shadow-xl">
-                                <div className="text-6xl animate-bounce">🌸</div>
-                                <p className="text-slate-400 font-bold font-mono tracking-widest text-lg">
-                                    ANALYZING MARKET DATA...
-                                </p>
-                            </div>
-                        ) : (
-                            // Logic: Pass interaction handlers
-                            <ResultsView
-                                key={`${ticker}-${startDate}-${endDate}`} 
-                                result={result}
-                                strategyType={strategy}
-                                onTradeClick={handleTradeClick}
-                                onRequestDiagnosis={handleRunDiagnosis}
-                            />
-                        )}
-                    </div>
-                </main>
-            </div>
+                      {error && (
+                          <div className="p-4 bg-white border border-red-200 rounded-2xl flex items-center gap-3 text-red-600 text-sm animate-in fade-in slide-in-from-top-2 shadow-lg">
+                              <AlertCircle size={20} />
+                              <span className="font-bold">Error:</span>
+                              <span>{error}</span>
+                          </div>
+                      )}
 
-            <div className="relative z-20 mt-8">
-                <div
-                    className="w-full absolute top-[-30px] pointer-events-none"
-                    style={{
-                        height: '30px',
-                        backgroundImage: 'radial-gradient(ellipse 60px 45px at 50% 100%, rgba(255,255,255,0.8) 30px, transparent 31px)',
-                        backgroundSize: '60px 30px',
-                        backgroundPosition: '0px 0px',
-                        backgroundRepeat: 'repeat-x'
-                    }}
-                />
-
-                <footer className="w-full py-6 text-center text-slate-600 text-s font-bold backdrop-blur-md bg-white/80">
-                    <p>
-                        Powered by <span className="text-sakura-600 hover:underline cursor-pointer">Yahoo Finance</span> & <span className="text-sky-600 hover:underline cursor-pointer">FastAPI</span>
-                    </p>
-                </footer>
+                      {loading ? (
+                          <div className="h-[600px] flex items-center justify-center flex-col gap-6 text-sakura-400 animate-pulse bg-white/90 backdrop-blur-sm rounded-[2rem] border border-sakura-100 shadow-xl">
+                              <div className="text-6xl animate-bounce">🌸</div>
+                              <p className="text-slate-400 font-bold font-mono tracking-widest text-lg">
+                                  ANALYZING MARKET DATA...
+                              </p>
+                          </div>
+                      ) : (
+                          <ResultsView
+                              key={`${ticker}-${startDate}-${endDate}-${fees}`} 
+                              result={result}
+                              strategyType={strategy}
+                              onTradeClick={handleTradeClick}
+                              onRequestDiagnosis={handleRunDiagnosis}
+                          />
+                      )}
+                  </div>
+              </main>
             </div>
         </div>
     );

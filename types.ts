@@ -1,4 +1,3 @@
-
 export interface StockDataPoint {
   date: string;
   open: number;
@@ -33,24 +32,19 @@ export enum StrategyType {
 }
 
 export interface StrategyParams {
-  // Core
   initialCapital: number;
-  // SMA / EMA
   shortWindow: number;
   longWindow: number;
-  // RSI
   rsiPeriod: number;
   rsiOverbought: number;
   rsiOversold: number;
-  // Bollinger
   bbPeriod: number;
   bbStdDev: number;
-  // MACD
   macdFast: number;
   macdSlow: number;
   macdSignal: number;
-  // Momentum
   rocPeriod: number;
+  [key: string]: number; // Allow indexing
 }
 
 export interface TradeSignal {
@@ -64,12 +58,13 @@ export interface BacktestResult {
   data: StockDataPoint[];
   trades: TradeSignal[];
   metrics: {
-    totalReturn: number; // Percentage
-    winRate: number; // Percentage
-    maxDrawdown: number; // Percentage
+    totalReturn: number;
+    winRate: number;
+    maxDrawdown: number;
     tradeCount: number;
     finalCapital: number;
     initialCapital: number;
+    sharpeRatio: number; // --- NEW ---
   };
 }
 

@@ -233,9 +233,9 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             {/* Logic: AI Diagnose Button */}
             <button 
                 onClick={onRequestDiagnosis}
-                className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-xs font-bold rounded-full shadow-md hover:shadow-lg hover:scale-105 transition-all animate-pulse-subtle"
+                className="flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 text-white text-xs font-bold rounded-full shadow-lg shadow-fuchsia-200 hover:shadow-xl hover:shadow-fuchsia-300 hover:scale-105 active:scale-95 transition-all duration-300 group"
             >
-                <Sparkles size={12} />
+                <Sparkles size={14} className="group-hover:animate-spin-slow" />
                 AI Diagnose
             </button>
           </div>

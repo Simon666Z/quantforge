@@ -1,23 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { StrategyType, StrategyParams } from '../types';
 import { Card, Label } from './UI';
-import { DatePicker } from './DatePicker';
 import { StrategySelector } from './StrategySelector';
-import { TickerSearch } from './TickerSearch';
-import { Settings2, DollarSign } from 'lucide-react';
+import { Settings2, DollarSign, ShieldAlert, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ConfigPanelProps {
-  ticker: string;
-  onTickerCommit: (ticker: string) => void;
   strategy: StrategyType;
   setStrategy: (val: StrategyType) => void;
   params: StrategyParams;
   setParams: (val: StrategyParams) => void;
-  startDate: string;
-  setStartDate: (val: string) => void;
-  endDate: string;
-  setEndDate: (val: string) => void;
   onRun: () => void;
+  fees: number;
+  setFees: (val: number) => void;
+  slippage: number;
+  setSlippage: (val: number) => void;
 }
 
 interface ParamSliderProps {
@@ -53,7 +49,7 @@ const ParamSlider: React.FC<ParamSliderProps> = ({
           <div className="flex justify-between text-xs mb-3 text-slate-500 transition-colors group-hover:text-slate-700">
               <span className="font-bold tracking-wide">{label}</span>
               <span className={`font-mono font-bold px-2 py-0.5 rounded-md transition-transform duration-300 group-hover:scale-110 ${theme.badge}`}>
-              {localValue}{suffix}
+              {localValue.toFixed(step < 1 ? 2 : 0)}{suffix}
               </span>
           </div>
           <div className="relative h-6 flex items-center">
@@ -67,34 +63,18 @@ const ParamSlider: React.FC<ParamSliderProps> = ({
     );
 };
 
-const DateQuickSelect = ({ label, onClick }: { label: string, onClick: () => void }) => (
-  <button 
-    onClick={onClick}
-    className="btn-bouncy px-3 py-1 text-[10px] font-bold bg-white border border-slate-100 text-slate-400 rounded-xl hover:bg-sakura-50 hover:text-sakura-500 hover:border-sakura-200 shadow-sm"
-  >
-    {label}
-  </button>
-);
-
 export const ConfigPanel: React.FC<ConfigPanelProps> = ({
-  ticker, onTickerCommit, strategy, setStrategy, params, setParams,
-  startDate, setStartDate, endDate, setEndDate
+  strategy, setStrategy, params, setParams,
+  fees, setFees, slippage, setSlippage
 }) => {
   
+  const [isRealityOpen, setIsRealityOpen] = useState(false);
+
   const handleParamChange = (key: keyof StrategyParams, value: number) => {
     setParams({ ...params, [key]: value });
   };
 
-  const handleQuickDate = (months: number) => {
-    const end = new Date();
-    const start = new Date();
-    start.setMonth(start.getMonth() - months);
-    setEndDate(end.toISOString().split('T')[0]);
-    setStartDate(start.toISOString().split('T')[0]);
-  };
-
   return (
-    // 修改：bg-white/80 改为 bg-white/90，增加一点不透明度，防止背景花纹干扰文字
     <Card className="h-full flex flex-col gap-6 border-0 shadow-xl shadow-sakura-100/50 bg-white/90 backdrop-blur-md">
       <div className="flex items-center gap-2 mb-2">
         <Settings2 className="text-sakura-400 animate-[spin_10s_linear_infinite]" size={20} />
@@ -103,13 +83,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
       
       <div className="space-y-6 pr-1 custom-scrollbar pb-8 overflow-visible">
         
-        <div className="relative z-30">
-          <TickerSearch 
-            value={ticker}
-            onCommit={onTickerCommit}
-          />
-        </div>
-
+        {/* 1. Initial Capital */}
         <div className="relative z-20">
            <Label>Initial Capital</Label>
            <div className="relative group focus-within:scale-[1.02] transition-transform duration-300 ease-out origin-left">
@@ -123,31 +97,53 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
            </div>
         </div>
 
-        <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100 hover:shadow-md transition-shadow duration-300 relative z-10">
-           <div className="flex justify-between items-center mb-4">
-             <Label>Timeline</Label>
-             <div className="flex gap-2">
-               <DateQuickSelect label="6M" onClick={() => handleQuickDate(6)} />
-               <DateQuickSelect label="1Y" onClick={() => handleQuickDate(12)} />
-               <DateQuickSelect label="YTD" onClick={() => {
-                 const now = new Date();
-                 setEndDate(now.toISOString().split('T')[0]);
-                 setStartDate(`${now.getFullYear()}-01-01`);
-               }} />
-             </div>
-           </div>
-           <div className="grid grid-cols-2 gap-3">
-             <DatePicker label="Start Date" value={startDate} onChange={setStartDate} />
-             <DatePicker label="End Date" value={endDate} onChange={setEndDate} />
-           </div>
+        {/* 2. Reality Check (Collapsible & Moved Up) */}
+        <div className={`border rounded-xl transition-all duration-300 overflow-hidden ${isRealityOpen ? 'bg-rose-50/30 border-rose-100' : 'bg-white border-slate-100'}`}>
+            <button 
+                onClick={() => setIsRealityOpen(!isRealityOpen)}
+                className="w-full flex items-center justify-between p-3 cursor-pointer hover:bg-rose-50/50 transition-colors"
+            >
+                <div className="flex items-center gap-2 text-rose-500">
+                    <ShieldAlert size={16} />
+                    <span className="font-bold text-xs uppercase tracking-widest">Reality Check</span>
+                </div>
+                {isRealityOpen ? <ChevronUp size={16} className="text-rose-300"/> : <ChevronDown size={16} className="text-slate-300"/>}
+            </button>
+            
+            <div className={`transition-all duration-500 ease-in-out ${isRealityOpen ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                <div className="p-4 pt-0 space-y-4">
+                    <p className="text-[10px] text-rose-400/80 italic leading-tight mb-2">
+                        Simulate real-world friction. High fees kill high-frequency strategies.
+                    </p>
+                    <ParamSlider 
+                        label="Commission" 
+                        value={fees} 
+                        onChange={setFees} 
+                        min={0} max={0.5} step={0.01} 
+                        suffix="%" 
+                        colorTheme="rose"
+                    />
+                    <ParamSlider 
+                        label="Slippage" 
+                        value={slippage} 
+                        onChange={setSlippage} 
+                        min={0} max={0.5} step={0.01} 
+                        suffix="%" 
+                        colorTheme="rose"
+                    />
+                </div>
+            </div>
         </div>
 
         <div className="w-full h-px bg-gradient-to-r from-transparent via-sakura-100 to-transparent"></div>
 
+        {/* 3. Strategy Selector */}
         <div className="relative z-10">
+            <Label>Strategy Model</Label>
             <StrategySelector value={strategy} onChange={setStrategy} />
         </div>
 
+        {/* 4. Parameters */}
         <div className="space-y-8 bg-white p-6 rounded-2xl border border-sakura-100 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500 hover:shadow-lg transition-shadow duration-500 relative z-0">
           <Label>Parameters</Label>
           
