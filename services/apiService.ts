@@ -1,6 +1,6 @@
 import { StockDataPoint } from '../types';
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = 'http://localhost:8000/v1';
 
 // 更新接口定义
 export interface SearchResult {
