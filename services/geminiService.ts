@@ -10,7 +10,7 @@ export interface AIStrategyResponse {
 
 export const parseStrategyFromChat = async (
   userMessage: string,
-  apiKey: string // <--- 新增参数：从 UI 传入 API Key
+  apiKey: string 
 ): Promise<AIStrategyResponse> => {
   
   if (!apiKey) {
@@ -24,6 +24,7 @@ export const parseStrategyFromChat = async (
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
+    // You can change the model as needed
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     // 定义强类型的 Prompt，强迫 AI 返回 JSON
