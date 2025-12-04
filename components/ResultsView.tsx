@@ -11,12 +11,9 @@ interface ResultsViewProps {
   strategyType: StrategyType;
 }
 
-// 使用 React.memo 锁死 Tooltip，避免父组件渲染导致它重绘
 const CustomChartTooltip = React.memo(({ active, payload, label, dataRef }: any) => {
   if (!active || !payload || !payload.length) return null;
 
-  // 关键优化：因为 X 轴变成了数字索引，我们需要通过索引反查回日期字符串
-  // dataRef 是我们透传进来的原始数据引用
   const originalDataPoint = dataRef[label]; 
   const dateStr = originalDataPoint ? originalDataPoint.date : '';
 
@@ -27,11 +24,9 @@ const CustomChartTooltip = React.memo(({ active, payload, label, dataRef }: any)
       </p>
       <div className="flex flex-col gap-1.5">
         {payload.map((entry: any, index: number) => {
-          // 过滤掉索引值本身和其他空值
-          if (entry.name === 'index' || entry.value === null || entry.value === undefined) {
+          if (entry.name === 'index' || entry.name === 'HoverTrigger' || entry.value === null || entry.value === undefined) {
             return null;
           }
-          // 格式化数值
           const displayValue = typeof entry.value === 'number' ? entry.value.toFixed(2) : entry.value;
           return (
             <div key={index} className="flex justify-between items-center gap-6 text-xs">
@@ -66,25 +61,41 @@ const MetricCard = ({ label, value, subValue, icon: Icon, color }: any) => {
 
 export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }) => {
   
-  // 核心性能优化逻辑
-  const { chartData, buySignals, sellSignals, maxIndex } = useMemo(() => {
-    if (!result || !result.data) {
-      return { chartData: [], buySignals: [], sellSignals: [], maxIndex: 0 };
+  const { chartData, buySignals, sellSignals, maxIndex, yDomain } = useMemo(() => {
+    if (!result || !result.data || result.data.length === 0) {
+      return { chartData: [], buySignals: [], sellSignals: [], maxIndex: 0, yDomain: ['auto', 'auto'] };
     }
 
     const rawData = result.data;
-    
-    // 1. 预处理数据，添加数字索引 (index)
-    // 相比于字符串日期，数字索引在图表库内部的查找速度是 O(1) 级别的
-    const processed = rawData.map((d, i) => ({
-      ...d,
-      index: i, // X轴将绑定这个字段，而不是 date
-    }));
+    let minVal = Infinity;
+    let maxVal = -Infinity;
 
-    // 2. 提取信号到独立数组
-    // 以前：Scatter 遍历 5000 个点，其中 4990 个是空。
-    // 现在：Scatter 只遍历 10 个点。性能提升 500 倍。
-    // 我们必须手动把 index 带过去，以便它能对齐到主图表。
+    // 1. 预处理数据 & 计算极值
+    const processed = rawData.map((d, i) => {
+      const vals = [
+        d.low, d.high, d.close, 
+        d.upperBand, d.lowerBand, 
+        d.smaShort, d.smaLong,
+        d.emaShort, d.emaLong
+      ].filter(v => v !== undefined && v !== null) as number[];
+
+      const localMin = Math.min(...vals);
+      const localMax = Math.max(...vals);
+
+      if (localMin < minVal) minVal = localMin;
+      if (localMax > maxVal) maxVal = localMax;
+
+      return {
+        ...d,
+        index: i,
+      };
+    });
+
+    const padding = (maxVal - minVal) * 0.05;
+    const yMin = Math.max(0, minVal - padding); 
+    const yMax = maxVal + padding;
+
+    // 2. 提取信号
     const buys = processed
       .filter(d => d.buySignal !== undefined)
       .map(d => ({ index: d.index, buySignal: d.buySignal }));
@@ -97,12 +108,12 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
       chartData: processed, 
       buySignals: buys, 
       sellSignals: sells,
-      maxIndex: processed.length - 1 
+      maxIndex: processed.length - 1,
+      yDomain: [yMin, yMax]
     };
   }, [result]);
 
   if (!result) {
-    // Empty state code...
     return (
       <div className="h-[500px] flex items-center justify-center flex-col gap-6 bg-white/30 border border-slate-100 rounded-3xl backdrop-blur-sm">
         <div className="w-2 h-24 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 shadow-inner border border-slate-100">
@@ -117,7 +128,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
   }
 
   const isProfit = result.metrics.totalReturn >= 0;
-  // 如果数据量太大，自动关闭动画，这是无法妥协的物理限制
   const enableAnimation = chartData.length < 300; 
 
   return (
@@ -164,7 +174,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
         
         <div className="flex-1 w-full -ml-2">
           <ResponsiveContainer width="100%" height="100%">
-            {/* 这里的 data 还是传完整数据，用于绘制线条 */}
             <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
@@ -173,11 +182,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
                 </linearGradient>
               </defs>
               
-              {/* 
-                性能优化核心：使用 type="number" 的 X 轴 
-                domain 指定索引范围 [0, maxIndex]
-                tickFormatter 将 0, 1, 2... 翻译回 "2024-01-01"
-              */}
               <XAxis 
                 dataKey="index" 
                 type="number"
@@ -188,25 +192,30 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
                 tickLine={false} 
                 axisLine={{stroke: '#f1f5f9'}} 
                 tickFormatter={(index) => chartData[index] ? chartData[index].date : ''}
-                allowDecimals={false} // 强制索引为整数
+                allowDecimals={false}
               />
+              
+              {/* 修复：强制格式化为两位小数，并增加 width 防止切断 */}
               <YAxis 
-                domain={['auto', 'auto']} 
+                domain={yDomain as [number, number]} 
+                width={60}
                 tick={{fontSize: 10, fill: '#64748b'}} 
                 tickLine={false} 
                 axisLine={{stroke: '#f1f5f9'}} 
-                tickFormatter={(val) => `$${val}`} 
+                tickFormatter={(val) => `$${Number(val).toFixed(2)}`} 
               />
               
               <Tooltip 
-                // 我们通过 dataRef 把原始数组传给 Tooltip，让它能反查日期
                 content={<CustomChartTooltip dataRef={chartData} />} 
                 cursor={{ stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '4 4' }} 
-                isAnimationActive={false} // Tooltip 动画是卡顿的一大元凶
+                isAnimationActive={false}
               />
               
               <Legend iconType="circle" wrapperStyle={{fontSize: '12px', paddingTop: '15px'}} />
               
+              {/* 隐形触发层 */}
+              <Bar dataKey="close" name="HoverTrigger" fill="transparent" barSize={Number.MAX_SAFE_INTEGER} isAnimationActive={false} />
+
               <Area 
                 type="monotone" 
                 dataKey="close" 
@@ -215,7 +224,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
                 fill="url(#colorPrice)" 
                 name="Price" 
                 isAnimationActive={enableAnimation}
-                activeDot={enableAnimation ? {r: 4} : false} // 数据量大时，关闭 activeDot 渲染能显著提升 hover 帧率
+                activeDot={enableAnimation ? {r: 4} : false} 
               />
 
               {strategyType === StrategyType.SMA_CROSSOVER && (
@@ -237,10 +246,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
                 </>
               )}
 
-              {/* 
-                性能优化核心：Scatter 使用独立的小数组
-                注意：必须显式指定 data={buySignals}，否则它会继承父级的 5000 条数据
-              */}
               <Scatter 
                 data={buySignals}
                 name="Buy Signal" 
@@ -263,12 +268,12 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
         </div>
       </Card>
 
+      {/* 副图表 */}
       {strategyType === StrategyType.RSI_REVERSAL && (
         <Card className="h-[220px] border-0 shadow-md shadow-slate-100">
           <h3 className="font-bold text-slate-600 mb-2 text-xs uppercase tracking-wide">Relative Strength Index</h3>
           <ResponsiveContainer width="100%" height="100%">
              <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                {/* 同样的 X 轴优化手段 */}
                 <XAxis 
                     dataKey="index" 
                     type="number"
@@ -306,7 +311,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
         </Card>
       )}
 
-      {/* Trade Log 保持不变 */}
       <Card className="border-0 shadow-lg shadow-slate-100/50 bg-white/90 backdrop-blur">
         <h3 className="font-bold text-slate-600 mb-4 text-sm uppercase tracking-wide flex items-center gap-2">
           <Activity size={16} className="text-slate-400" />
