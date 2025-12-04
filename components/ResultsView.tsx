@@ -11,6 +11,10 @@ interface ResultsViewProps {
   strategyType: StrategyType;
 }
 
+// --- 统一动画配置 ---
+const ANIMATION_DURATION = 500;
+const ANIMATION_EASING = 'ease-in-out';
+
 const CustomChartTooltip = React.memo(({ active, payload, label, dataRef }: any) => {
   if (!active || !payload || !payload.length) return null;
 
@@ -28,10 +32,32 @@ const CustomChartTooltip = React.memo(({ active, payload, label, dataRef }: any)
             return null;
           }
           const displayValue = typeof entry.value === 'number' ? entry.value.toFixed(2) : entry.value;
+          
+          // 强制修正 Tooltip 中的图标形状逻辑（虽然 Recharts payload 会自带，但为了保险可以根据 name 适配）
+          let iconShape = 'rounded-full'; // 默认圆
+          if (entry.name.includes('SMA') || entry.name.includes('EMA') || entry.name.includes('Band')) {
+             iconShape = 'h-[3px] w-3 rounded-none'; // 线条
+          } else if (entry.name.includes('Signal')) {
+             iconShape = 'w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[8px] border-b-current rounded-none bg-transparent shadow-none'; // 三角形模拟
+          }
+
           return (
             <div key={index} className="flex justify-between items-center gap-6 text-xs">
               <span className="flex items-center gap-2 text-slate-500 font-medium">
-                <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: entry.color }} />
+                {/* 简单的图标渲染逻辑 */}
+                {entry.name.includes('Signal') ? (
+                   <div style={{ 
+                     width: 0, height: 0, 
+                     borderLeft: '5px solid transparent', 
+                     borderRight: '5px solid transparent', 
+                     borderBottom: `6px solid ${entry.color}`,
+                     transform: entry.name === 'Sell Signal' ? 'rotate(180deg)' : 'none'
+                   }} />
+                ) : entry.name.includes('SMA') || entry.name.includes('EMA') || entry.name.includes('Band') ? (
+                   <div className="w-3 h-1" style={{ backgroundColor: entry.color }} />
+                ) : (
+                   <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: entry.color }} />
+                )}
                 {entry.name}
               </span>
               <span className="font-mono font-bold text-slate-700">{displayValue}</span>
@@ -70,7 +96,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
     let minVal = Infinity;
     let maxVal = -Infinity;
 
-    // 1. 预处理数据 & 计算极值
     const processed = rawData.map((d, i) => {
       const vals = [
         d.low, d.high, d.close, 
@@ -95,7 +120,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
     const yMin = Math.max(0, minVal - padding); 
     const yMax = maxVal + padding;
 
-    // 2. 提取信号
     const buys = processed
       .filter(d => d.buySignal !== undefined)
       .map(d => ({ index: d.index, buySignal: d.buySignal }));
@@ -129,6 +153,12 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
 
   const isProfit = result.metrics.totalReturn >= 0;
   const enableAnimation = chartData.length < 300; 
+
+  const commonAnimProps = {
+    isAnimationActive: enableAnimation,
+    animationDuration: ANIMATION_DURATION,
+    animationEasing: ANIMATION_EASING,
+  };
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -195,7 +225,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
                 allowDecimals={false}
               />
               
-              {/* 修复：强制格式化为两位小数，并增加 width 防止切断 */}
               <YAxis 
                 domain={yDomain as [number, number]} 
                 width={60}
@@ -211,10 +240,34 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
                 isAnimationActive={false}
               />
               
-              <Legend iconType="circle" wrapperStyle={{fontSize: '12px', paddingTop: '15px'}} />
+              {/* 修复图例：
+                  1. wrapperStyle 使用 flex 布局，强制居中对齐
+                  2. 子组件中通过 legendType 指定形状 
+              */}
+              <Legend 
+                verticalAlign="bottom" 
+                height={36} 
+                wrapperStyle={{ 
+                    paddingTop: '10px', 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    alignItems: 'center', // 垂直居中
+                    gap: '20px',          // 增加间距
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: '#64748b'
+                }}
+              />
               
-              {/* 隐形触发层 */}
-              <Bar dataKey="close" name="HoverTrigger" fill="transparent" barSize={Number.MAX_SAFE_INTEGER} isAnimationActive={false} />
+              {/* 隐形触发层：设置 legendType="none" 隐藏 */}
+              <Bar 
+                dataKey="close" 
+                name="HoverTrigger" 
+                fill="transparent" 
+                barSize={Number.MAX_SAFE_INTEGER} 
+                isAnimationActive={false} 
+                legendType="none" 
+              />
 
               <Area 
                 type="monotone" 
@@ -223,26 +276,91 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
                 strokeWidth={2} 
                 fill="url(#colorPrice)" 
                 name="Price" 
-                isAnimationActive={enableAnimation}
+                legendType="circle" // 价格显示为圆形
                 activeDot={enableAnimation ? {r: 4} : false} 
+                {...commonAnimProps}
               />
 
               {strategyType === StrategyType.SMA_CROSSOVER && (
                 <>
-                  <Line type="monotone" dataKey="smaShort" stroke="#ec4899" dot={false} strokeWidth={2} name="Short SMA" isAnimationActive={enableAnimation} activeDot={false} />
-                  <Line type="monotone" dataKey="smaLong" stroke="#94a3b8" dot={false} strokeWidth={2} strokeDasharray="5 5" name="Long SMA" isAnimationActive={enableAnimation} activeDot={false} />
+                  <Line 
+                    type="monotone" 
+                    dataKey="smaShort" 
+                    stroke="#ec4899" 
+                    dot={false} 
+                    strokeWidth={2} 
+                    name="Short SMA" 
+                    legendType="plainline" // 显示为线段
+                    activeDot={false} 
+                    {...commonAnimProps} 
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="smaLong" 
+                    stroke="#94a3b8" 
+                    dot={false} 
+                    strokeWidth={2} 
+                    strokeDasharray="5 5" 
+                    name="Long SMA" 
+                    legendType="plainline" // 显示为线段
+                    activeDot={false} 
+                    {...commonAnimProps} 
+                  />
                 </>
               )}
               {strategyType === StrategyType.EMA_CROSSOVER && (
                 <>
-                  <Line type="monotone" dataKey="emaShort" stroke="#ec4899" dot={false} strokeWidth={2} name="Short EMA" isAnimationActive={enableAnimation} activeDot={false} />
-                  <Line type="monotone" dataKey="emaLong" stroke="#94a3b8" dot={false} strokeWidth={2} strokeDasharray="5 5" name="Long EMA" isAnimationActive={enableAnimation} activeDot={false} />
+                  <Line 
+                    type="monotone" 
+                    dataKey="emaShort" 
+                    stroke="#ec4899" 
+                    dot={false} 
+                    strokeWidth={2} 
+                    name="Short EMA" 
+                    legendType="plainline" 
+                    activeDot={false} 
+                    {...commonAnimProps} 
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="emaLong" 
+                    stroke="#94a3b8" 
+                    dot={false} 
+                    strokeWidth={2} 
+                    strokeDasharray="5 5" 
+                    name="Long EMA" 
+                    legendType="plainline" 
+                    activeDot={false} 
+                    {...commonAnimProps} 
+                  />
                 </>
               )}
               {strategyType === StrategyType.BOLLINGER_BANDS && (
                 <>
-                  <Line type="monotone" dataKey="upperBand" stroke="#f472b6" dot={false} strokeDasharray="3 3" strokeWidth={1} name="Upper Band" isAnimationActive={enableAnimation} activeDot={false} />
-                  <Line type="monotone" dataKey="lowerBand" stroke="#f472b6" dot={false} strokeDasharray="3 3" strokeWidth={1} name="Lower Band" isAnimationActive={enableAnimation} activeDot={false} />
+                  <Line 
+                    type="monotone" 
+                    dataKey="upperBand" 
+                    stroke="#f472b6" 
+                    dot={false} 
+                    strokeDasharray="3 3" 
+                    strokeWidth={1} 
+                    name="Upper Band" 
+                    legendType="plainline" 
+                    activeDot={false} 
+                    {...commonAnimProps} 
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="lowerBand" 
+                    stroke="#f472b6" 
+                    dot={false} 
+                    strokeDasharray="3 3" 
+                    strokeWidth={1} 
+                    name="Lower Band" 
+                    legendType="plainline" 
+                    activeDot={false} 
+                    {...commonAnimProps} 
+                  />
                 </>
               )}
 
@@ -252,7 +370,8 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
                 dataKey="buySignal" 
                 fill="#10b981" 
                 shape="triangle" 
-                isAnimationActive={enableAnimation}
+                legendType="triangle" // 显示为三角形
+                {...commonAnimProps}
               />
               <Scatter 
                 data={sellSignals}
@@ -261,7 +380,8 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
                 fill="#f43f5e" 
                 shape="triangle" 
                 transform="rotate(180)" 
-                isAnimationActive={enableAnimation}
+                legendType="triangle" // 显示为三角形
+                {...commonAnimProps}
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -282,9 +402,11 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
                 />
                 <YAxis domain={[0, 100]} ticks={[30, 70]} tick={{fontSize: 10, fill: '#64748b'}} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomChartTooltip dataRef={chartData} />} cursor={{ stroke: '#94a3b8', strokeWidth: 1 }} isAnimationActive={false} />
-                <Line type="monotone" dataKey="rsi" stroke="#ec4899" dot={false} strokeWidth={2} name="RSI" isAnimationActive={enableAnimation} activeDot={false} />
-                <Line type="monotone" dataKey={() => 70} stroke="#f43f5e" strokeDasharray="3 3" strokeWidth={1} dot={false} name="Overbought" isAnimationActive={enableAnimation} />
-                <Line type="monotone" dataKey={() => 30} stroke="#10b981" strokeDasharray="3 3" strokeWidth={1} dot={false} name="Oversold" isAnimationActive={enableAnimation} />
+                <Legend iconType="plainline" wrapperStyle={{fontSize: '12px'}} />
+                
+                <Line type="monotone" dataKey="rsi" stroke="#ec4899" dot={false} strokeWidth={2} name="RSI" legendType="plainline" activeDot={false} {...commonAnimProps} />
+                <Line type="monotone" dataKey={() => 70} stroke="#f43f5e" strokeDasharray="3 3" strokeWidth={1} dot={false} name="Overbought" legendType="plainline" {...commonAnimProps} />
+                <Line type="monotone" dataKey={() => 30} stroke="#10b981" strokeDasharray="3 3" strokeWidth={1} dot={false} name="Oversold" legendType="plainline" {...commonAnimProps} />
              </LineChart>
           </ResponsiveContainer>
         </Card>
@@ -303,14 +425,17 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ result, strategyType }
                 />
                 <YAxis tick={{fontSize: 10, fill: '#64748b'}} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomChartTooltip dataRef={chartData} />} cursor={{ stroke: '#94a3b8', strokeWidth: 1 }} isAnimationActive={false} />
-                <Bar dataKey="macdHist" fill="#bae6fd" name="Histogram" isAnimationActive={enableAnimation} />
-                <Line type="monotone" dataKey="macd" stroke="#0ea5e9" dot={false} strokeWidth={2} name="MACD" isAnimationActive={enableAnimation} activeDot={false} />
-                <Line type="monotone" dataKey="macdSignal" stroke="#ec4899" dot={false} strokeWidth={2} name="Signal" isAnimationActive={enableAnimation} activeDot={false} />
+                <Legend iconType="plainline" wrapperStyle={{fontSize: '12px'}} />
+
+                <Bar dataKey="macdHist" fill="#bae6fd" name="Histogram" legendType="rect" {...commonAnimProps} />
+                <Line type="monotone" dataKey="macd" stroke="#0ea5e9" dot={false} strokeWidth={2} name="MACD" legendType="plainline" activeDot={false} {...commonAnimProps} />
+                <Line type="monotone" dataKey="macdSignal" stroke="#ec4899" dot={false} strokeWidth={2} name="Signal" legendType="plainline" activeDot={false} {...commonAnimProps} />
              </ComposedChart>
           </ResponsiveContainer>
         </Card>
       )}
 
+      {/* Trade Log 保持不变 */}
       <Card className="border-0 shadow-lg shadow-slate-100/50 bg-white/90 backdrop-blur">
         <h3 className="font-bold text-slate-600 mb-4 text-sm uppercase tracking-wide flex items-center gap-2">
           <Activity size={16} className="text-slate-400" />
