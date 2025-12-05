@@ -5,7 +5,6 @@ export interface StockDataPoint {
   low: number;
   close: number;
   volume: number;
-  // Indicators
   smaShort?: number;
   smaLong?: number;
   emaShort?: number;
@@ -17,9 +16,9 @@ export interface StockDataPoint {
   macdSignal?: number;
   macdHist?: number;
   roc?: number;
-  // Visualization
   buySignal?: number;
   sellSignal?: number;
+  [key: string]: any;
 }
 
 export enum StrategyType {
@@ -55,7 +54,6 @@ export interface StrategyParams {
   adxThreshold: number;
   keltnerPeriod: number;
   keltnerMult: number;
-  // Risk
   stopLoss: number;
   takeProfit: number;
   trailingStop: number;
@@ -79,8 +77,32 @@ export interface BacktestResult {
     tradeCount: number;
     finalCapital: number;
     initialCapital: number;
-    sharpeRatio: number; // 确保有这个字段
+    sharpeRatio: number;
   };
+}
+
+export interface DiagnosisContent {
+  score: number;
+  verdict: string;
+  analysis: string;
+  suggestion: string;
+  key_dates: string[];
+}
+
+export interface SavedStrategy {
+    id: string | number;
+    name: string;
+    ticker: string;
+    strategy_type: StrategyType;
+    params: StrategyParams;
+    created_at: string;
+    source: 'local' | 'cloud';
+}
+
+export interface AIConfig {
+    apiKey: string;
+    modelName: string;
+    language: string;
 }
 
 export const DEFAULT_PARAMS: StrategyParams = {

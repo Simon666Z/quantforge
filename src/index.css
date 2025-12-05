@@ -65,3 +65,57 @@
 .range-slider::-moz-range-track { height: 8px; border-radius: 999px; background-color: var(--track-bg) !important; }
 .range-slider::-moz-range-thumb { height: 20px; width: 20px; border: 2px solid white; border-radius: 50%; background-color: var(--thumb-bg) !important; transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .range-slider:active::-moz-range-thumb { transform: scale(1.5); box-shadow: 0 0 0 8px var(--thumb-shadow) !important; }
+
+/* iOS-style Modal Animations */
+@keyframes ios-enter {
+  0% { opacity: 0; transform: scale(0.95) translateY(10px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes ios-overlay-enter {
+  0% { opacity: 0; backdrop-filter: blur(0px); }
+  100% { opacity: 1; backdrop-filter: blur(4px); }
+}
+
+@keyframes slide-up-fade {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.animate-ios-enter {
+  animation: ios-enter 0.4s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+.animate-ios-overlay {
+  animation: ios-overlay-enter 0.4s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slide-up-fade 0.3s ease-out forwards;
+}
+
+.animate-shake {
+  animation: shake 0.3s ease-in-out;
+}
+
+/* Markdown Styles specific for Diagnosis */
+.prose p {
+  margin-bottom: 0.75em;
+  line-height: 1.6;
+  color: #475569;
+}
+.prose strong {
+  color: #1e293b;
+  font-weight: 700;
+}
+.prose ul {
+  list-style-type: disc;
+  padding-left: 1.2em;
+  margin-bottom: 0.75em;
+}

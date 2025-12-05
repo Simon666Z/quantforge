@@ -4,6 +4,7 @@ import { DatePicker } from './DatePicker';
 import { Card } from './UI';
 import { History } from 'lucide-react';
 
+// 修复：确保接口定义包含了 App.tsx 传递的所有 Props
 interface MarketBarProps {
   ticker: string;
   onTickerCommit: (ticker: string) => void;
@@ -11,6 +12,9 @@ interface MarketBarProps {
   setStartDate: (val: string) => void;
   endDate: string;
   setEndDate: (val: string) => void;
+  onOpenScreener: () => void;      // Fixed
+  onToggleSubscribe: () => void;   // Fixed
+  isSubscribed: boolean;           // Fixed
 }
 
 const DateQuickSelect = ({ label, onClick }: { label: string, onClick: () => void }) => (
@@ -23,7 +27,9 @@ const DateQuickSelect = ({ label, onClick }: { label: string, onClick: () => voi
 );
 
 export const MarketBar: React.FC<MarketBarProps> = ({
-  ticker, onTickerCommit, startDate, setStartDate, endDate, setEndDate
+  ticker, onTickerCommit, startDate, setStartDate, endDate, setEndDate,
+  // 虽然 UI 上移除了按钮，但为了不破坏 App.tsx 的传参逻辑，这里必须解构出来（即使不用）
+  onOpenScreener, onToggleSubscribe, isSubscribed
 }) => {
   
   const handleQuickDate = (months: number) => {
@@ -35,39 +41,34 @@ export const MarketBar: React.FC<MarketBarProps> = ({
   };
 
   return (
-    <Card className="flex flex-col md:flex-row items-start md:items-center gap-6 p-4 border-0 shadow-lg shadow-sakura-100/40 bg-white/90 backdrop-blur-md relative z-30">
-      {/* 1. Ticker Search Section */}
-      <div className="flex-1 w-full md:w-auto min-w-[200px] relative z-40">
-        <TickerSearch value={ticker} onCommit={onTickerCommit} />
-      </div>
-
-      <div className="w-px h-10 bg-slate-100 hidden md:block"></div>
-
-      {/* 2. Date Section - 增加了 group focus-within:scale 效果 */}
-      <div className="flex-grow flex flex-col md:flex-row gap-4 w-full md:w-auto items-start md:items-end">
-        <div className="flex gap-3 w-full md:w-auto">
-          <div className="flex-1 group transition-transform duration-300 ease-out focus-within:scale-[1.02] origin-left">
-             <DatePicker label="Start" value={startDate} onChange={setStartDate} />
-          </div>
-          <div className="flex-1 group transition-transform duration-300 ease-out focus-within:scale-[1.02] origin-left">
-             <DatePicker label="End" value={endDate} onChange={setEndDate} />
-          </div>
+    <Card className="p-4 border-0 shadow-lg shadow-sakura-100/40 bg-white/90 backdrop-blur-md relative z-30 shrink-0">
+      <div className="flex flex-col md:flex-row items-end md:items-center gap-6">
+        <div className="w-full md:w-[280px] relative z-50 shrink-0">
+            <TickerSearch value={ticker} onCommit={onTickerCommit} />
         </div>
-
-        {/* Quick Selectors */}
-        <div className="flex flex-row md:flex-col gap-2 justify-center pb-1">
-          <div className="flex items-center gap-1 text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-0.5">
-             <History size={10} /> Range
-          </div>
-          <div className="flex gap-1">
-            <DateQuickSelect label="6M" onClick={() => handleQuickDate(6)} />
-            <DateQuickSelect label="1Y" onClick={() => handleQuickDate(12)} />
-            <DateQuickSelect label="YTD" onClick={() => {
-                const now = new Date();
-                setEndDate(now.toISOString().split('T')[0]);
-                setStartDate(`${now.getFullYear()}-01-01`);
-            }} />
-          </div>
+        <div className="flex-1 w-full flex flex-col md:flex-row gap-4 items-start md:items-end relative z-30 min-w-0">
+            <div className="flex gap-3 w-full">
+                <div className="flex-1 group transition-transform duration-300 ease-out focus-within:scale-[1.02] origin-left">
+                    <DatePicker label="Start" value={startDate} onChange={setStartDate} />
+                </div>
+                <div className="flex-1 group transition-transform duration-300 ease-out focus-within:scale-[1.02] origin-left">
+                    <DatePicker label="End" value={endDate} onChange={setEndDate} />
+                </div>
+            </div>
+            <div className="flex flex-row md:flex-col gap-2 justify-center pb-1 shrink-0">
+                <div className="flex items-center gap-1 text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-0.5">
+                    <History size={10} /> Range
+                </div>
+                <div className="flex gap-1">
+                    <DateQuickSelect label="6M" onClick={() => handleQuickDate(6)} />
+                    <DateQuickSelect label="1Y" onClick={() => handleQuickDate(12)} />
+                    <DateQuickSelect label="YTD" onClick={() => {
+                        const now = new Date();
+                        setEndDate(now.toISOString().split('T')[0]);
+                        setStartDate(`${now.getFullYear()}-01-01`);
+                    }} />
+                </div>
+            </div>
         </div>
       </div>
     </Card>

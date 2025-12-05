@@ -1,42 +1,51 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { StrategyType, StrategyParams, DEFAULT_PARAMS, BacktestResult } from '../types';
+import { StrategyType, StrategyParams, DEFAULT_PARAMS, BacktestResult, DiagnosisContent, AIConfig } from '../types';
 
-// 基础 System Prompt
 const BASE_SYSTEM_PROMPT = `
-You are "Sakura", an expert Quantitative Trading Mentor.
-Your goal is to guide beginners through trading strategies and risk management.
+ROLE: You are "Sakura", an elite Quantitative Trading Mentor.
+GOAL: Configure the backtesting engine or explain concepts based on user input.
 
-STYLE: Professional, concise, insightful. No emojis unless necessary.
+=== CAPABILITY MATRIX (STRICT) ===
+You can ONLY configure these strategies with these specific parameters:
 
-PLATFORM CAPABILITIES:
-1. SMA_CROSSOVER / EMA_CROSSOVER (Trend)
-2. TURTLE (Donchian Breakout)
-3. RSI_REVERSAL (Mean Reversion)
-4. BOLLINGER_BANDS (Volatility)
-5. MACD / MOMENTUM (Momentum)
-6. TREND_RSI (Trend + Oscillator)
-7. VOLATILITY_FILTER (ADX Filter)
-8. KELTNER (ATR Channel)
-9. RISK: Stop Loss, Take Profit, Trailing Stop.
+1. TREND FOLLOWING:
+   - SMA_CROSSOVER: { shortWindow, longWindow }
+   - EMA_CROSSOVER: { shortWindow, longWindow }
+   - TURTLE: { turtleEntry (breakout days), turtleExit (breakdown days) }
+   - KELTNER: { keltnerPeriod, keltnerMult }
+   - TREND_RSI: { trendMa (filter), rsiPeriod, rsiOversold }
 
-=== YOUR JOB ===
-Classify intent and output JSON.
+2. MEAN REVERSION:
+   - RSI_REVERSAL: { rsiPeriod, rsiOversold, rsiOverbought }
+   - BOLLINGER_BANDS: { bbPeriod, bbStdDev }
 
-JSON STRUCTURE:
+3. MOMENTUM & FILTERS:
+   - MACD: { macdFast, macdSlow, macdSignal }
+   - MOMENTUM: { rocPeriod }
+   - VOLATILITY_FILTER: { adxPeriod, adxThreshold }
+
+4. RISK MANAGEMENT (Apply these if user mentions "safe", "risk", "stop"):
+   - stopLoss (%), takeProfit (%), trailingStop (%)
+
+=== OUTPUT FORMAT (JSON ONLY) ===
+Do NOT output markdown. Do NOT output conversational text outside JSON.
+Structure:
 {
   "intent": "CONFIGURE" | "EXPLAIN" | "CHAT",
-  "strategy": "ENUM",
-  "params": { ... },
-  "explanation": "...",
-  "topic": "...",
-  "content": "...",
-  "message": "...",
-  "suggestions": ["suggestion 1", "suggestion 2", "suggestion 3"]
+  "strategy": "ENUM_VALUE",      // Required if intent is CONFIGURE
+  "params": { "paramName": 123 }, // Only changed params
+  "explanation": "Short, professional rationale.",
+  "content": "Explanation text...", // If intent is EXPLAIN
+  "message": "Chat text...",        // If intent is CHAT
+  "suggestions": ["Short follow-up 1", "Short follow-up 2", "Short follow-up 3"]
 }
 
-RULES:
-1. suggestions must be contextual.
-2. Return ONLY raw JSON. No Markdown.
+=== EXAMPLES ===
+User: "Use Turtle strategy"
+JSON: { "intent": "CONFIGURE", "strategy": "TURTLE", "params": { "turtleEntry": 20, "turtleExit": 10 }, "explanation": "Activated Turtle Trading rules: Buy 20-day highs, sell 10-day lows.", "suggestions": ["Add a Trailing Stop", "Explain Donchian Channels"] }
+
+User: "Make it safer"
+JSON: { "intent": "CONFIGURE", "strategy": "TREND_RSI", "params": { "stopLoss": 5, "trendMa": 200 }, "explanation": "Switched to Trend+RSI filter and added a 5% hard stop loss for capital preservation.", "suggestions": ["What is Sharpe Ratio?", "Optimize RSI period"] }
 `;
 
 export interface AIResponse {
@@ -50,126 +59,120 @@ export interface AIResponse {
   suggestions?: string[];
 }
 
-export interface DiagnosisContent {
-  score: number;
-  verdict: string;
-  analysis: string;
-  suggestion: string;
-}
-
-// 辅助配置接口
-export interface AIConfig {
-    apiKey: string;
-    modelName: string;
-    language: string;
-}
-
-const cleanAndParseJSON = (text: string) => {
-    let cleanText = text.replace(/```json/g, '').replace(/```/g, '');
-    const firstBrace = cleanText.indexOf('{');
-    const lastBrace = cleanText.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace !== -1) {
-        cleanText = cleanText.substring(firstBrace, lastBrace + 1);
+const cleanAndParseJSON = (text: string): AIResponse => {
+    try {
+        // 1. Strip Markdown Code Blocks
+        let clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        // 2. Extract JSON Object
+        const firstOpen = clean.indexOf('{');
+        const lastClose = clean.lastIndexOf('}');
+        if (firstOpen !== -1 && lastClose !== -1) {
+            clean = clean.substring(firstOpen, lastClose + 1);
+            return JSON.parse(clean);
+        }
+        
+        // 3. Fallback: If no JSON found, treat as CHAT
+        throw new Error("No JSON object found");
+    } catch (e) {
+        console.warn("AI JSON Parse Failed, falling back to CHAT mode.");
+        return {
+            intent: "CHAT",
+            message: text, // Display raw text to user so they see SOMETHING
+            suggestions: ["Setup Trend Strategy", "Explain Risk Management"]
+        };
     }
-    return JSON.parse(cleanText);
 };
 
-export const parseStrategyFromChat = async (userInput: string, config: AIConfig): Promise<AIResponse> => {
+export const parseStrategyFromChat = async (
+    userInput: string, 
+    config: AIConfig,
+    currentContext?: { strategy: StrategyType, params: StrategyParams }
+): Promise<AIResponse> => {
   if (!config.apiKey) return { intent: 'ERROR', message: "Please configure your API Key in settings first." };
-
+  
   try {
     const genAI = new GoogleGenerativeAI(config.apiKey);
-    // 使用用户指定的模型，如果为空则回退默认
-    const model = genAI.getGenerativeModel({ model: config.modelName || "gemini-2.0-flash" });
-
-    // 动态注入语言要求
-    const languageInstruction = config.language 
-        ? `IMPORTANT: You MUST reply in ${config.language}. All explanations and content must be in ${config.language}.` 
-        : "";
-
-    const fullPrompt = `${BASE_SYSTEM_PROMPT}\n${languageInstruction}\n\nUSER INPUT: "${userInput}"`;
-
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: fullPrompt }] }]
-    });
-
-    const parsed = cleanAndParseJSON(result.response.text());
+    const modelName = config.modelName || "gemini-2.0-flash-lite";
+    const model = genAI.getGenerativeModel({ model: modelName });
     
-    if (!['CONFIGURE', 'EXPLAIN', 'CHAT'].includes(parsed.intent)) {
-        parsed.intent = 'CHAT';
-    }
+    const languageInstruction = config.language ? `IMPORTANT: Output ALL text in ${config.language}.` : "";
+    
+    const contextStr = currentContext 
+        ? `CURRENT CONTEXT: Strategy=${currentContext.strategy}, Params=${JSON.stringify(currentContext.params)}`
+        : "CURRENT CONTEXT: Default";
 
+    const fullPrompt = `${BASE_SYSTEM_PROMPT}\n${languageInstruction}\n${contextStr}\n\nUSER INPUT: "${userInput}"`;
+    
+    const result = await model.generateContent({ contents: [{ role: "user", parts: [{ text: fullPrompt }] }] });
+    const text = result.response.text();
+    
+    if (!text) throw new Error("Empty response");
+
+    const parsed = cleanAndParseJSON(text);
+    
+    // Post-processing
     if (parsed.intent === 'CONFIGURE') {
-        return {
-            intent: 'CONFIGURE',
-            strategy: parsed.strategy as StrategyType,
+        // Merge with defaults to ensure safety
+        return { 
+            ...parsed,
             params: { ...DEFAULT_PARAMS, ...parsed.params },
-            explanation: parsed.explanation,
-            suggestions: parsed.suggestions || ["Add Stop Loss", "Explain this"]
+            suggestions: parsed.suggestions || ["Optimize this", "Add Risk Control"]
         };
     }
 
-    return parsed as AIResponse;
+    return parsed;
 
-  } catch (e) {
-    console.error("AI Parse Error:", e);
-    return { intent: 'CHAT', message: "I encountered a processing error. Please check your API Key or Model Name.", suggestions: ["Trend strategies", "Risk Management"] };
+  } catch (e: any) {
+    return { intent: 'CHAT', message: `Connection error: ${e.message}`, suggestions: ["Try again"] };
   }
 };
 
 export const generateBacktestReport = async (result: BacktestResult, strategy: StrategyType, config: AIConfig): Promise<DiagnosisContent | null> => {
     if (!config.apiKey || !result) return null;
-
     try {
         const genAI = new GoogleGenerativeAI(config.apiKey);
-        const model = genAI.getGenerativeModel({ model: config.modelName || "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ model: config.modelName || "gemini-2.0-flash-lite" });
+        const languageInstruction = config.language ? `Output in ${config.language}.` : "";
         
-        const languageInstruction = config.language 
-            ? `Output content in ${config.language}.` 
-            : "";
+        const tradesSample = result.trades.slice(0, 15).map(t => `${t.date}: ${t.type} @ $${t.price.toFixed(2)}`).join('\n');
 
         const prompt = `
-        You are a Risk Manager. Analyze this backtest result for strategy: ${strategy}.
+        Act as a Senior Quant Risk Manager. Diagnose this ${strategy} strategy.
         ${languageInstruction}
         
-        DATA:
-        - Total Return: ${result.metrics.totalReturn.toFixed(2)}%
-        - Max Drawdown: ${result.metrics.maxDrawdown.toFixed(2)}%
-        - Win Rate: ${result.metrics.winRate.toFixed(2)}%
-        - Sharpe Ratio: ${result.metrics.sharpeRatio.toFixed(2)}
+        STATS: Return ${result.metrics.totalReturn.toFixed(2)}%, DD ${result.metrics.maxDrawdown.toFixed(2)}%, Sharpe ${result.metrics.sharpeRatio.toFixed(2)}.
+        TRADES (Sample):
+        ${tradesSample}
         
-        TASK:
-        Provide a diagnosis in strict JSON format:
+        Provide JSON:
         {
-            "score": (Integer 0-100),
+            "score": (0-100),
             "verdict": (Short Title),
-            "analysis": (2 sentences analyzing performance),
-            "suggestion": (1 actionable advice)
+            "analysis": (Critique specific trade timing),
+            "suggestion": (Specific advice),
+            "key_dates": ["YYYY-MM-DD"] (Pick 2-3 specific dates from trades to highlight)
         }
-        NO MARKDOWN. ONLY JSON.
+        NO MARKDOWN.
         `;
-
         const res = await model.generateContent(prompt);
         return cleanAndParseJSON(res.response.text()) as DiagnosisContent;
-
     } catch (e) { return null; }
 };
 
 export const analyzeTradeContext = async (trade: any, data: any[], strategy: any, apiKey: string) => {
-    return `Analysis pending implementation.`; 
+    return "Analysis pending."; 
 };
 
-// --- Suggestions Logic ---
 const SUGGESTION_POOL = [
     "Setup a safe Trend Strategy 🛡️",
     "How to catch breakout? 🚀",
     "Explain Trailing Stop 📉",
     "I want to trade volatility ⚡",
-    "Strategy for sideways market 🦀",
-    "Optimize for Sharpe Ratio 📈"
+    "Strategy for sideways market 🦀"
 ];
 
 export const getFreshSuggestions = () => {
     const shuffled = [...SUGGESTION_POOL].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, 4);
+    return shuffled.slice(0, 3);
 };
