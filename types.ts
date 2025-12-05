@@ -23,26 +23,20 @@ export interface StockDataPoint {
 }
 
 export enum StrategyType {
-  // 1. Trend
   SMA_CROSSOVER = 'SMA_CROSSOVER',
   EMA_CROSSOVER = 'EMA_CROSSOVER',
-  TURTLE = 'TURTLE',
-  
-  // 2. Mean Reversion
   RSI_REVERSAL = 'RSI_REVERSAL',
   BOLLINGER_BANDS = 'BOLLINGER_BANDS',
-  
-  // 3. Momentum & Filters
   MACD = 'MACD',
   MOMENTUM = 'MOMENTUM',
   TREND_RSI = 'TREND_RSI',
+  TURTLE = 'TURTLE',
   VOLATILITY_FILTER = 'VOLATILITY_FILTER',
   KELTNER = 'KELTNER',
 }
 
 export interface StrategyParams {
   initialCapital: number;
-  // Basics
   shortWindow: number;
   longWindow: number;
   rsiPeriod: number;
@@ -54,7 +48,6 @@ export interface StrategyParams {
   macdSlow: number;
   macdSignal: number;
   rocPeriod: number;
-  // Advanced
   trendMa: number;
   turtleEntry: number;
   turtleExit: number;
@@ -86,7 +79,7 @@ export interface BacktestResult {
     tradeCount: number;
     finalCapital: number;
     initialCapital: number;
-    sharpeRatio: number;
+    sharpeRatio: number; // 确保有这个字段
   };
 }
 
@@ -103,7 +96,6 @@ export const DEFAULT_PARAMS: StrategyParams = {
   macdSlow: 26,
   macdSignal: 9,
   rocPeriod: 12,
-  // New Defaults
   trendMa: 200,
   turtleEntry: 20,
   turtleExit: 10,
@@ -111,7 +103,6 @@ export const DEFAULT_PARAMS: StrategyParams = {
   adxThreshold: 25,
   keltnerPeriod: 20,
   keltnerMult: 2.0,
-  // Risk
   stopLoss: 0,
   takeProfit: 0,
   trailingStop: 0,
