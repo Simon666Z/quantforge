@@ -35,9 +35,8 @@ export const MarketBar: React.FC<MarketBarProps> = ({
   };
 
   return (
-    <Card className="flex flex-col md:flex-row items-start md:items-center gap-6 p-4 border-0 shadow-lg shadow-sakura-100/40 bg-white/90 backdrop-blur-md">
-      {/* 1. Ticker Search Section */}
-      <div className="flex-1 w-full md:w-auto min-w-[200px]">
+    <Card className="flex flex-col md:flex-row items-start md:items-center gap-6 p-4 border-0 shadow-lg shadow-sakura-100/40 bg-white/90 backdrop-blur-md relative z-30">
+      <div className="flex-1 w-full md:w-auto min-w-[200px] relative z-40">
         <TickerSearch value={ticker} onCommit={onTickerCommit} />
       </div>
 

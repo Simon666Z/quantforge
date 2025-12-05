@@ -89,7 +89,7 @@ export const TickerSearch: React.FC<TickerSearchProps> = ({ value, onCommit }) =
 
       {showSuggestions && query.length > 1 && (
         // 下拉菜单：使用更高的 z-index
-        <div className="absolute z-[100] left-0 top-full mt-2 w-full max-h-80 overflow-y-auto bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-sakura-100/50 border border-white ring-1 ring-sakura-100 animate-in fade-in slide-in-from-top-4 duration-300 custom-scrollbar origin-top-left">
+        <div className="absolute z-[9999] left-0 top-full mt-2 w-full max-h-80 overflow-y-auto bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-sakura-100/50 border border-white ring-1 ring-sakura-100 animate-in fade-in slide-in-from-top-4 duration-300 custom-scrollbar origin-top-left">
           {loading ? (
             <div className="p-4 flex items-center justify-center text-sakura-300">
               <Loader2 className="animate-spin" size={20} />
