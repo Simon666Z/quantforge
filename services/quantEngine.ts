@@ -40,3 +40,23 @@ export const runBacktest = async (
     return null;
   }
 };
+
+export const generateStrategyCode = async (
+    ticker: string,
+    strategy: string,
+    params: any,
+    fees: number,
+    slippage: number
+) => {
+    try {
+        const response = await fetch(`${API_BASE}/code-gen`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticker, strategy, params, fees, slippage })
+        });
+        return await response.json();
+    } catch (e) {
+        console.error(e);
+        return null;
+    }
+};

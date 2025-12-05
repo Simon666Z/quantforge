@@ -8,6 +8,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from pathlib import Path
+from code_generator import generate_pseudocode, generate_vectorbt_code, generate_backtrader_code
 
 # 引入修复后的引擎
 from quant_engine import SakuraEngine
@@ -35,6 +36,13 @@ class BacktestRequest(BaseModel):
     ticker: str
     startDate: str
     endDate: str
+    strategy: str
+    params: Dict[str, Any]
+    fees: float = 0.001
+    slippage: float = 0.001
+
+class CodeGenRequest(BaseModel):
+    ticker: str
     strategy: str
     params: Dict[str, Any]
     fees: float = 0.001
@@ -146,6 +154,14 @@ def run_backtest(req: BacktestRequest):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Engine error: {str(e)}")
+
+@api_v1.post("/code-gen", tags=["code"])
+def generate_code(req: CodeGenRequest):
+    return {
+        "pseudocode": generate_pseudocode(req.strategy, req.params),
+        "vectorbt": generate_vectorbt_code(req.ticker, req.strategy, req.params, req.fees, req.slippage),
+        "backtrader": generate_backtrader_code(req.ticker, req.strategy, req.params, req.fees, req.slippage)
+    }
 
 app.include_router(api_v1)
 

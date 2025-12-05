@@ -4,14 +4,14 @@ import {
 } from 'recharts';
 import { BacktestResult, StrategyType } from '../types';
 import { Card, Badge } from './UI';
-import { TrendingUp, TrendingDown, DollarSign, Activity, BarChart3, Sparkles } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Activity, BarChart3, Sparkles, Code2 } from 'lucide-react';
 
 interface ResultsViewProps {
   result: BacktestResult | null;
   strategyType: StrategyType;
-  // Merged: Interaction props
   onTradeClick?: (data: any) => void;
   onRequestDiagnosis?: () => void;
+  onRequestCode?: () => void; // --- NEW: Code Request Handler ---
 }
 
 const ANIMATION_DURATION = 500;
@@ -62,12 +62,10 @@ const CustomChartTooltip = React.memo(({ active, payload, label, dataRef }: any)
   );
 });
 
-// --- Logic: Force Custom Triangle Shape ---
 const TriangleShape = (props: any) => {
   const { cx, cy, fill, payload } = props;
   if (!cx || !cy) return null;
   
-  // Up Triangle (Buy)
   if (payload.buySignal) {
     return (
       <path 
@@ -78,7 +76,6 @@ const TriangleShape = (props: any) => {
       />
     );
   }
-  // Down Triangle (Sell)
   return (
     <path 
       d={`M${cx},${cy + 6} L${cx + 6},${cy - 6} L${cx - 6},${cy - 6} Z`} 
@@ -106,7 +103,7 @@ const MetricCard = ({ label, value, subValue, icon: Icon, color }: any) => {
 };
 
 export const ResultsView: React.FC<ResultsViewProps> = ({ 
-  result, strategyType, onTradeClick, onRequestDiagnosis 
+  result, strategyType, onTradeClick, onRequestDiagnosis, onRequestCode
 }) => {
   
   const { chartData, buySignals, sellSignals, maxIndex, yDomain } = useMemo(() => {
@@ -126,11 +123,12 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         d.emaShort, d.emaLong
       ].filter(v => v !== undefined && v !== null) as number[];
 
-      const localMin = Math.min(...vals);
-      const localMax = Math.max(...vals);
-
-      if (localMin < minVal) minVal = localMin;
-      if (localMax > maxVal) maxVal = localMax;
+      if (vals.length > 0) {
+        const localMin = Math.min(...vals);
+        const localMax = Math.max(...vals);
+        if (localMin < minVal) minVal = localMin;
+        if (localMax > maxVal) maxVal = localMax;
+      }
 
       return {
         ...d,
@@ -142,7 +140,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
     const yMin = Math.max(0, minVal - padding); 
     const yMax = maxVal + padding;
 
-    // Logic: Include full data for click handler
     const buys = processed
       .filter(d => d.buySignal !== undefined)
       .map(d => ({ index: d.index, buySignal: d.buySignal, ...d, type: 'BUY' }));
@@ -185,7 +182,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Design: Friend's Outline Removal Styles */}
       <style>{`
         .recharts-wrapper { outline: none !important; }
         .recharts-surface { outline: none !important; }
@@ -211,7 +207,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         />
         <MetricCard 
           label="Total Actions"
-          value={result.trades.length}
+          value={result.metrics.tradeCount}
           icon={Activity}
           color="bg-sky-500"
         />
@@ -230,14 +226,27 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                 <div className="w-2 h-6 bg-sakura-400 rounded-full"></div>
                 Price Action & Signals
             </h3>
-            {/* Logic: AI Diagnose Button */}
-            <button 
-                onClick={onRequestDiagnosis}
-                className="flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 text-white text-xs font-bold rounded-full shadow-lg shadow-fuchsia-200 hover:shadow-xl hover:shadow-fuchsia-300 hover:scale-105 active:scale-95 transition-all duration-300 group"
-            >
-                <Sparkles size={14} className="group-hover:animate-spin-slow" />
-                AI Diagnose
-            </button>
+            
+            <div className="flex gap-2">
+                {/* --- NEW: Code Button --- */}
+                <button 
+                    onClick={onRequestCode}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-full hover:bg-slate-200 hover:text-slate-800 transition-colors shadow-sm"
+                    title="View Strategy Code"
+                >
+                    <Code2 size={14} />
+                    Code
+                </button>
+
+                {/* AI Button */}
+                <button 
+                    onClick={onRequestDiagnosis}
+                    className="flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 text-white text-xs font-bold rounded-full shadow-lg shadow-fuchsia-200 hover:shadow-xl hover:shadow-fuchsia-300 hover:scale-105 active:scale-95 transition-all duration-300 group"
+                >
+                    <Sparkles size={14} className="group-hover:animate-spin-slow" />
+                    AI Diagnose
+                </button>
+            </div>
           </div>
           <div className="flex gap-4 text-xs font-bold bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
             <span className="flex items-center gap-1 text-emerald-600"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> BUY</span>
@@ -298,27 +307,8 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                 }}
               />
               
-              {/* Logic: Z-Index Fix - HoverTrigger first (bottom) */}
-              <Bar 
-                dataKey="close" 
-                name="HoverTrigger" 
-                fill="transparent" 
-                barSize={Number.MAX_SAFE_INTEGER} 
-                isAnimationActive={false} 
-                legendType="none" 
-              />
-
-              <Area 
-                type="monotone" 
-                dataKey="close" 
-                stroke="#38bdf8" 
-                strokeWidth={2} 
-                fill="url(#colorPrice)" 
-                name="Price" 
-                legendType="circle" 
-                activeDot={enableAnimation ? {r: 4} : false} 
-                {...commonAnimProps}
-              />
+              <Bar dataKey="close" name="HoverTrigger" fill="transparent" barSize={Number.MAX_SAFE_INTEGER} isAnimationActive={false} legendType="none" />
+              <Area type="monotone" dataKey="close" stroke="#38bdf8" strokeWidth={2} fill="url(#colorPrice)" name="Price" legendType="circle" activeDot={enableAnimation ? {r: 4} : false} {...commonAnimProps} />
 
               {strategyType === StrategyType.SMA_CROSSOVER && (
                 <>
@@ -339,35 +329,17 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                 </>
               )}
 
-              {/* Logic: TriangleShape + onClick + Z-Index Fix (Top) */}
               <Scatter 
-                data={buySignals}
-                name="Buy Signal" 
-                dataKey="buySignal" 
-                fill="#10b981" 
-                shape={<TriangleShape />}
-                legendType="triangle"
-                onClick={(data) => { if (onTradeClick) onTradeClick(data); }}
-                style={{ cursor: 'pointer' }}
-                {...commonAnimProps}
+                data={buySignals} name="Buy Signal" dataKey="buySignal" fill="#10b981" shape={<TriangleShape />} legendType="triangle" onClick={(data) => { if (onTradeClick) onTradeClick(data); }} style={{ cursor: 'pointer' }} {...commonAnimProps}
               />
               <Scatter 
-                data={sellSignals}
-                name="Sell Signal" 
-                dataKey="sellSignal" 
-                fill="#f43f5e" 
-                shape={<TriangleShape />}
-                legendType="triangle"
-                onClick={(data) => { if (onTradeClick) onTradeClick(data); }}
-                style={{ cursor: 'pointer' }}
-                {...commonAnimProps}
+                data={sellSignals} name="Sell Signal" dataKey="sellSignal" fill="#f43f5e" shape={<TriangleShape />} legendType="triangle" onClick={(data) => { if (onTradeClick) onTradeClick(data); }} style={{ cursor: 'pointer' }} {...commonAnimProps}
               />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
       </Card>
 
-      {/* Secondary Charts */}
       {strategyType === StrategyType.RSI_REVERSAL && (
         <Card className="h-[220px] border-0 shadow-md shadow-slate-100">
           <h3 className="font-bold text-slate-600 mb-2 text-xs uppercase tracking-wide">Relative Strength Index</h3>
@@ -377,7 +349,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                 <YAxis domain={[0, 100]} ticks={[30, 70]} tick={{fontSize: 10, fill: '#64748b'}} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomChartTooltip dataRef={chartData} />} cursor={{ stroke: '#94a3b8', strokeWidth: 1 }} isAnimationActive={false} />
                 <Legend iconType="plainline" wrapperStyle={{fontSize: '12px'}} />
-                
                 <Line type="monotone" dataKey="rsi" stroke="#ec4899" dot={false} strokeWidth={2} name="RSI" legendType="plainline" activeDot={false} {...commonAnimProps} />
                 <Line type="monotone" dataKey={() => 70} stroke="#f43f5e" strokeDasharray="3 3" strokeWidth={1} dot={false} name="Overbought" legendType="plainline" {...commonAnimProps} />
                 <Line type="monotone" dataKey={() => 30} stroke="#10b981" strokeDasharray="3 3" strokeWidth={1} dot={false} name="Oversold" legendType="plainline" {...commonAnimProps} />
@@ -395,7 +366,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                 <YAxis tick={{fontSize: 10, fill: '#64748b'}} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomChartTooltip dataRef={chartData} />} cursor={{ stroke: '#94a3b8', strokeWidth: 1 }} isAnimationActive={false} />
                 <Legend iconType="plainline" wrapperStyle={{fontSize: '12px'}} />
-
                 <Bar dataKey="macdHist" fill="#bae6fd" name="Histogram" legendType="rect" {...commonAnimProps} />
                 <Line type="monotone" dataKey="macd" stroke="#0ea5e9" dot={false} strokeWidth={2} name="MACD" legendType="plainline" activeDot={false} {...commonAnimProps} />
                 <Line type="monotone" dataKey="macdSignal" stroke="#ec4899" dot={false} strokeWidth={2} name="Signal" legendType="plainline" activeDot={false} {...commonAnimProps} />
