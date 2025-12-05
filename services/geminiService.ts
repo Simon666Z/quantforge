@@ -1,10 +1,53 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { StrategyType, StrategyParams, DEFAULT_PARAMS, BacktestResult, TradeSignal, StockDataPoint } from "../types";
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { StrategyType, StrategyParams, DEFAULT_PARAMS, BacktestResult } from '../types';
 
-export interface EducationalContent {
-  concept: string;
-  reason: string;
-  risk: string;
+// 基础 System Prompt
+const BASE_SYSTEM_PROMPT = `
+You are "Sakura", an expert Quantitative Trading Mentor.
+Your goal is to guide beginners through trading strategies and risk management.
+
+STYLE: Professional, concise, insightful. No emojis unless necessary.
+
+PLATFORM CAPABILITIES:
+1. SMA_CROSSOVER / EMA_CROSSOVER (Trend)
+2. TURTLE (Donchian Breakout)
+3. RSI_REVERSAL (Mean Reversion)
+4. BOLLINGER_BANDS (Volatility)
+5. MACD / MOMENTUM (Momentum)
+6. TREND_RSI (Trend + Oscillator)
+7. VOLATILITY_FILTER (ADX Filter)
+8. KELTNER (ATR Channel)
+9. RISK: Stop Loss, Take Profit, Trailing Stop.
+
+=== YOUR JOB ===
+Classify intent and output JSON.
+
+JSON STRUCTURE:
+{
+  "intent": "CONFIGURE" | "EXPLAIN" | "CHAT",
+  "strategy": "ENUM",
+  "params": { ... },
+  "explanation": "...",
+  "topic": "...",
+  "content": "...",
+  "message": "...",
+  "suggestions": ["suggestion 1", "suggestion 2", "suggestion 3"]
+}
+
+RULES:
+1. suggestions must be contextual.
+2. Return ONLY raw JSON. No Markdown.
+`;
+
+export interface AIResponse {
+  intent: 'CONFIGURE' | 'EXPLAIN' | 'CHAT' | 'ERROR';
+  strategy?: StrategyType;
+  params?: Partial<StrategyParams>;
+  explanation?: string;
+  topic?: string;
+  content?: string;
+  message?: string;
+  suggestions?: string[];
 }
 
 export interface DiagnosisContent {
@@ -14,135 +57,119 @@ export interface DiagnosisContent {
   suggestion: string;
 }
 
-export interface AIStrategyResponse {
-  strategy: StrategyType;
-  params: StrategyParams;
-  explanation: string;
-  educational?: EducationalContent;
-  error?: string;
+// 辅助配置接口
+export interface AIConfig {
+    apiKey: string;
+    modelName: string;
+    language: string;
 }
 
-const getModel = (apiKey: string) => {
-  const genAI = new GoogleGenerativeAI(apiKey);
-  return genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+const cleanAndParseJSON = (text: string) => {
+    let cleanText = text.replace(/```json/g, '').replace(/```/g, '');
+    const firstBrace = cleanText.indexOf('{');
+    const lastBrace = cleanText.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+        cleanText = cleanText.substring(firstBrace, lastBrace + 1);
+    }
+    return JSON.parse(cleanText);
 };
 
-export const parseStrategyFromChat = async (
-  userMessage: string,
-  apiKey: string 
-): Promise<AIStrategyResponse> => {
-  if (!apiKey) return { strategy: StrategyType.SMA_CROSSOVER, params: DEFAULT_PARAMS, explanation: "", error: "Missing API Key" };
+export const parseStrategyFromChat = async (userInput: string, config: AIConfig): Promise<AIResponse> => {
+  if (!config.apiKey) return { intent: 'ERROR', message: "Please configure your API Key in settings first." };
 
   try {
-    const model = getModel(apiKey);
-    const prompt = `
-      You are "Sakura", a patient and helpful Quant Trading Mentor for beginners.
-      User Input: "${userMessage}"
-      
-      Task: Map user intent to a strategy.
-      Strategies: [SMA_CROSSOVER, EMA_CROSSOVER, RSI_REVERSAL, BOLLINGER_BANDS, MACD, MOMENTUM]
-      
-      JSON Response Only (No Markdown):
-      {
-        "strategy": "Enum",
-        "params": { ...overrides... },
-        "explanation": "Brief confirmation (e.g. 'I've set up a Bollinger Band strategy for you').",
-        "educational": {
-          "concept": "Name of the financial concept",
-          "reason": "Why this fits their request",
-          "risk": "One simple risk warning"
-        }
-      }
-    `;
+    const genAI = new GoogleGenerativeAI(config.apiKey);
+    // 使用用户指定的模型，如果为空则回退默认
+    const model = genAI.getGenerativeModel({ model: config.modelName || "gemini-2.0-flash" });
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(text);
+    // 动态注入语言要求
+    const languageInstruction = config.language 
+        ? `IMPORTANT: You MUST reply in ${config.language}. All explanations and content must be in ${config.language}.` 
+        : "";
 
-    return {
-      strategy: parsed.strategy || StrategyType.SMA_CROSSOVER,
-      params: { ...DEFAULT_PARAMS, ...parsed.params },
-      explanation: parsed.explanation || "Configured.",
-      educational: parsed.educational
-    };
-  } catch (error: any) {
-    return { strategy: StrategyType.SMA_CROSSOVER, params: DEFAULT_PARAMS, explanation: "", error: error.message };
-  }
-};
+    const fullPrompt = `${BASE_SYSTEM_PROMPT}\n${languageInstruction}\n\nUSER INPUT: "${userInput}"`;
 
-// --- 修复评分逻辑：更加宽容和基于数据 ---
-export const generateBacktestReport = async (
-  result: BacktestResult,
-  strategyType: StrategyType,
-  apiKey: string
-): Promise<DiagnosisContent | null> => {
-  if (!apiKey) return null;
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: fullPrompt }] }]
+    });
 
-  try {
-    const model = getModel(apiKey);
-    const metrics = result.metrics;
+    const parsed = cleanAndParseJSON(result.response.text());
     
-    const prompt = `
-      Act as a Constructive Quant Mentor reviewing a beginner's strategy.
-      
-      STRATEGY: ${strategyType}
-      DATA:
-      - Total Return: ${metrics.totalReturn.toFixed(2)}%
-      - Max Drawdown: ${metrics.maxDrawdown.toFixed(2)}%
-      - Win Rate: ${metrics.winRate.toFixed(2)}%
-      - Trades: ${metrics.tradeCount}
+    if (!['CONFIGURE', 'EXPLAIN', 'CHAT'].includes(parsed.intent)) {
+        parsed.intent = 'CHAT';
+    }
 
-      SCORING RULES (Be fair, not harsh):
-      - If Total Return is NEGATIVE: Score < 50.
-      - If Total Return is POSITIVE (0-10%): Score 60-70.
-      - If Total Return is GOOD (>10%): Score 75-85.
-      - If Total Return is EXCELLENT (>50%) AND Drawdown < 30%: Score 90+.
-      - Do not give low scores just because it's a simple strategy. If it makes money, it's good.
+    if (parsed.intent === 'CONFIGURE') {
+        return {
+            intent: 'CONFIGURE',
+            strategy: parsed.strategy as StrategyType,
+            params: { ...DEFAULT_PARAMS, ...parsed.params },
+            explanation: parsed.explanation,
+            suggestions: parsed.suggestions || ["Add Stop Loss", "Explain this"]
+        };
+    }
 
-      TASK: Return JSON (NO MARKDOWN):
-      {
-        "score": (Integer 0-100 based on rules above),
-        "verdict": "Short, punchy headline (e.g. 'Solid Profit, Low Risk')",
-        "analysis": "2 sentences on why it worked or failed. Focus on market trend vs strategy logic.",
-        "suggestion": "1 specific actionable advice (e.g. 'Try reducing the RSI period to catch more trades')."
-      }
-    `;
+    return parsed as AIResponse;
 
-    const resultAI = await model.generateContent(prompt);
-    const text = resultAI.response.text().replace(/```json|```/g, '').trim();
-    return JSON.parse(text);
-  } catch (error) {
-    console.error("Report Gen Error", error);
-    return null;
+  } catch (e) {
+    console.error("AI Parse Error:", e);
+    return { intent: 'CHAT', message: "I encountered a processing error. Please check your API Key or Model Name.", suggestions: ["Trend strategies", "Risk Management"] };
   }
 };
 
-export const analyzeTradeContext = async (
-  trade: TradeSignal,
-  marketData: StockDataPoint[],
-  strategyType: StrategyType,
-  apiKey: string
-): Promise<string> => {
-  if (!apiKey) return "Missing API Key.";
+export const generateBacktestReport = async (result: BacktestResult, strategy: StrategyType, config: AIConfig): Promise<DiagnosisContent | null> => {
+    if (!config.apiKey || !result) return null;
 
-  try {
-    const model = getModel(apiKey);
-    const tradeIndex = marketData.findIndex(d => d.date === trade.date);
-    const contextData = marketData.slice(Math.max(0, tradeIndex - 5), tradeIndex + 1);
-    const indicatorValues = contextData[contextData.length - 1];
+    try {
+        const genAI = new GoogleGenerativeAI(config.apiKey);
+        const model = genAI.getGenerativeModel({ model: config.modelName || "gemini-2.0-flash" });
+        
+        const languageInstruction = config.language 
+            ? `Output content in ${config.language}.` 
+            : "";
 
-    const prompt = `
-      User clicked a specific ${trade.type} trade at $${trade.price.toFixed(2)}.
-      Strategy: ${strategyType}.
-      Indicators at moment: RSI=${indicatorValues.rsi?.toFixed(2)}, Close=${indicatorValues.close.toFixed(2)}.
-      
-      Explain this trade simply. Was it a good entry or risky? 
-      Keep it conversational and under 30 words.
-    `;
+        const prompt = `
+        You are a Risk Manager. Analyze this backtest result for strategy: ${strategy}.
+        ${languageInstruction}
+        
+        DATA:
+        - Total Return: ${result.metrics.totalReturn.toFixed(2)}%
+        - Max Drawdown: ${result.metrics.maxDrawdown.toFixed(2)}%
+        - Win Rate: ${result.metrics.winRate.toFixed(2)}%
+        - Sharpe Ratio: ${result.metrics.sharpeRatio.toFixed(2)}
+        
+        TASK:
+        Provide a diagnosis in strict JSON format:
+        {
+            "score": (Integer 0-100),
+            "verdict": (Short Title),
+            "analysis": (2 sentences analyzing performance),
+            "suggestion": (1 actionable advice)
+        }
+        NO MARKDOWN. ONLY JSON.
+        `;
 
-    const result = await model.generateContent(prompt);
-    return result.response.text();
-  } catch (error) {
-    return "Analysis failed.";
-  }
+        const res = await model.generateContent(prompt);
+        return cleanAndParseJSON(res.response.text()) as DiagnosisContent;
+
+    } catch (e) { return null; }
+};
+
+export const analyzeTradeContext = async (trade: any, data: any[], strategy: any, apiKey: string) => {
+    return `Analysis pending implementation.`; 
+};
+
+// --- Suggestions Logic ---
+const SUGGESTION_POOL = [
+    "Setup a safe Trend Strategy 🛡️",
+    "How to catch breakout? 🚀",
+    "Explain Trailing Stop 📉",
+    "I want to trade volatility ⚡",
+    "Strategy for sideways market 🦀",
+    "Optimize for Sharpe Ratio 📈"
+];
+
+export const getFreshSuggestions = () => {
+    const shuffled = [...SUGGESTION_POOL].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, 4);
 };

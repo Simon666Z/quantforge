@@ -4,7 +4,7 @@ import { ResultsView } from './components/ResultsView';
 import { ChatInterface, ChatInterfaceRef } from './components/ChatInterface';
 import { StrategyType, StrategyParams, DEFAULT_PARAMS, BacktestResult } from './types';
 import { runBacktest, generateStrategyCode } from './services/quantEngine';
-import { generateBacktestReport, analyzeTradeContext } from './services/geminiService';
+import { generateBacktestReport, analyzeTradeContext, AIConfig } from './services/geminiService';
 import { AlertCircle, RefreshCcw, X, Users, Code2, Database, Palette, Hammer } from 'lucide-react';
 import { MarketBar } from './components/MarketBar';
 import { CodeViewer } from './components/CodeViewer';
@@ -42,6 +42,7 @@ const App: React.FC = () => {
 
     const chatRef = useRef<ChatInterfaceRef>(null);
 
+    // --- Effects ---
     useEffect(() => {
         if (showCredits) {
             setIsCreditsMounted(true);
@@ -51,6 +52,7 @@ const App: React.FC = () => {
         }
     }, [showCredits]);
 
+    // Main Calculation Function (Fetches Data AND Runs Backtest on Server)
     useEffect(() => {
         const executeBacktest = async () => {
             if (!ticker) return;
@@ -67,8 +69,8 @@ const App: React.FC = () => {
                     params,
                     { start: startDate, end: endDate },
                     ticker,
-                    fees / 100, 
-                    slippage / 100
+                    fees / 100,     // Convert % to decimal
+                    slippage / 100  // Convert % to decimal
                 );
 
                 if (!backtestResult) {
@@ -85,46 +87,67 @@ const App: React.FC = () => {
             }
         };
 
+        // Debounce to prevent spamming server
         const timer = setTimeout(executeBacktest, 600);
         return () => clearTimeout(timer);
 
     }, [ticker, startDate, endDate, strategy, params, fees, slippage]);
 
+    // --- Logic: AI Handlers ---
+    
+    // Helper to get config from Chat Interface safely
+    const getAIConfig = (): AIConfig | null => {
+        if (!chatRef.current) return null;
+        return chatRef.current.getConfig();
+    };
+
     const handleRunDiagnosis = async () => {
         if (!result || !chatRef.current) return;
-        const apiKey = chatRef.current.getApiKey();
-        if (!apiKey) {
+        
+        const config = getAIConfig();
+        if (!config || !config.apiKey) {
           chatRef.current.addMessage("Please enter your Gemini API Key in the settings first.", "ai");
           return;
         }
+    
         chatRef.current.addMessage("Running deep diagnosis on your strategy performance... 🧐", "ai");
         chatRef.current.setLoading(true);
-        const report = await generateBacktestReport(result, strategy, apiKey);
+    
+        // Pass full config (ApiKey + Model + Language)
+        const report = await generateBacktestReport(result, strategy, config);
+        
         chatRef.current.setLoading(false);
+        
         if (report) {
           chatRef.current.addMessage("", "ai", undefined, report);
         } else {
-          chatRef.current.addMessage("Failed to generate diagnosis.", "ai");
+          chatRef.current.addMessage("Failed to generate diagnosis. Check your API Key or Network.", "ai");
         }
     };
     
     const handleTradeClick = async (data: any) => {
         if (!chatRef.current || !result) return;
-        const apiKey = chatRef.current.getApiKey();
-        if (!apiKey) {
+        
+        const config = getAIConfig();
+        if (!config || !config.apiKey) {
           chatRef.current.addMessage("I need your API Key to analyze this trade.", "ai");
           return;
         }
+    
         const tradeType = data.type === 'BUY' ? "Buy" : "Sell";
         chatRef.current.addMessage(`Analyzing that ${tradeType} signal at $${data.close.toFixed(2)}... 🔍`, "user");
         chatRef.current.setLoading(true);
+    
         const tradeInfo = {
           date: data.date,
           type: data.type,
           price: data.close,
           reason: "Manual click analysis"
         };
-        const analysis = await analyzeTradeContext(tradeInfo as any, result.data, strategy, apiKey);
+    
+        // Only passing ApiKey here as per current implementation, can be extended later
+        const analysis = await analyzeTradeContext(tradeInfo as any, result.data, strategy, config.apiKey);
+        
         chatRef.current.setLoading(false);
         chatRef.current.addMessage(analysis, "ai");
     };
@@ -182,20 +205,38 @@ const App: React.FC = () => {
             />
             <div className="fixed inset-0 z-[-1] bg-white/30 pointer-events-none" />
 
-            {/* --- HEADER --- */}
             <div className="relative z-20 bg-white/80 backdrop-blur-sm">
                 <div className="max-w-7xl mx-auto px-4 md:px-8 pt-6 pb-6">
                     <header className="flex items-center gap-6 select-none">
                         <div
                             onClick={() => setShowCredits(true)}
-                            className="btn-bouncy relative group w-20 h-20 bg-gradient-to-br from-sakura-400 to-rose-500 rounded-[1.5rem] border-2 border-white/50 shadow-[0_10px_25px_-5px_rgba(236,72,153,0.3),0_4px_10px_-3px_rgba(0,0,0,0.1)] flex items-center justify-center overflow-hidden transition-all duration-300 hover:-translate-y-1"
+                            className="
+                btn-bouncy relative group
+                w-20 h-20
+                bg-gradient-to-br from-sakura-400 to-rose-500
+                rounded-[1.5rem]
+                border-2 border-white/50
+                shadow-[0_10px_25px_-5px_rgba(236,72,153,0.3),0_4px_10px_-3px_rgba(0,0,0,0.1)]
+                flex items-center justify-center
+                overflow-hidden
+                transition-all duration-300
+                hover:-translate-y-1
+              "
                         >
-                            <Hammer size={40} strokeWidth={2} className="text-white drop-shadow-md transform transition-transform duration-500 cubic-bezier(0.34, 1.56, 0.64, 1) group-hover:scale-110 group-hover:rotate-12" />
+                            <Hammer
+                                size={40}
+                                strokeWidth={2}
+                                className="text-white drop-shadow-md transform transition-transform duration-500 cubic-bezier(0.34, 1.56, 0.64, 1) group-hover:scale-110 group-hover:rotate-12"
+                            />
                             <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent pointer-events-none rounded-[1.5rem]"></div>
                             <div className="absolute inset-0 rounded-[1.5rem] ring-1 ring-inset ring-white/20 pointer-events-none"></div>
                         </div>
 
-                        <div onClick={handleResetApp} className="cursor-pointer group flex flex-col justify-center">
+                        <div
+                            onClick={handleResetApp}
+                            className="cursor-pointer group flex flex-col justify-center"
+                            title="Click to Reset App"
+                        >
                             <h1 className="text-5xl font-extrabold text-avatar tracking-tight leading-tight group-hover:text-sakura-500 transition-colors duration-300 flex items-center gap-3 drop-shadow-sm">
                                 QuantForge
                                 <RefreshCcw size={24} className="text-sakura-400 opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 ease-out" />
@@ -206,6 +247,8 @@ const App: React.FC = () => {
                         </div>
                     </header>
                 </div>
+
+                {/* Cloud Decoration */}
                 <div
                     className="w-full absolute bottom-[-30px] left-0 z-20 pointer-events-none"
                     style={{
@@ -218,64 +261,92 @@ const App: React.FC = () => {
                 />
             </div>
 
-            {/* --- MAIN CONTENT --- */}
             <div className="relative z-10 w-full max-w-7xl mx-auto p-4 md:p-8 flex flex-col mt-8">
 
                 {isCreditsMounted && (
                     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
-                        <div className={`absolute inset-0 bg-slate-900/40 backdrop-blur-sm ${showCredits ? 'animate-backdrop-in' : 'animate-backdrop-out'}`} onClick={() => setShowCredits(false)} />
+                        <div
+                            className={`absolute inset-0 bg-slate-900/40 backdrop-blur-sm ${showCredits ? 'animate-backdrop-in' : 'animate-backdrop-out'}`}
+                            onClick={() => setShowCredits(false)}
+                        />
                         <div className={`bg-white/95 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-white ring-1 ring-sakura-100 max-w-md w-full relative ${showCredits ? 'animate-modal-in' : 'animate-modal-out'}`}>
-                            <button onClick={() => setShowCredits(false)} className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 text-slate-400 transition-colors btn-bouncy">
+                            <button
+                                onClick={() => setShowCredits(false)}
+                                className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 text-slate-400 transition-colors btn-bouncy"
+                            >
                                 <X size={20} />
                             </button>
+
                             <div className="flex items-center gap-3 mb-6">
-                                <div className="w-12 h-12 bg-sakura-100 text-sakura-500 rounded-2xl flex items-center justify-center"><Users size={24} /></div>
-                                <div><h2 className="text-xl font-bold text-slate-800">Team Credits</h2><p className="text-sm text-slate-400">The minds behind QuantForge</p></div>
+                                <div className="w-12 h-12 bg-sakura-100 text-sakura-500 rounded-2xl flex items-center justify-center">
+                                    <Users size={24} />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-800">Team Credits</h2>
+                                    <p className="text-sm text-slate-400">The minds behind QuantForge</p>
+                                </div>
                             </div>
+
                             <div className="space-y-4">
                                 <CreditItem name="Shuming" role="Strategies research and implementation" icon={Code2} color="text-indigo-500 bg-indigo-50" />
                                 <CreditItem name="Shenbao" role="Frontend design and implementation" icon={Palette} color="text-sakura-500 bg-sakura-50" />
                                 <CreditItem name="Han" role="Backend design and implementation" icon={Database} color="text-sky-500 bg-sky-50" />
                                 <CreditItem name="Zihan" role="Hunt for modules & UI Consultant" icon={Users} color="text-emerald-500 bg-emerald-50" />
                             </div>
+
+                            <div className="mt-8 text-center text-xs text-slate-300 font-mono">
+                                Made with ❤️ in 2025
+                            </div>
                         </div>
                     </div>
                 )}
 
                 <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-4 flex-grow">
-                    
-                    {/* LEFT COLUMN */}
                     <div className="lg:col-span-4 flex flex-col gap-6">
-                        <ChatInterface ref={chatRef} onApplyStrategy={handleAIStrategyApply} />
+                        <ChatInterface 
+                            ref={chatRef}
+                            onApplyStrategy={handleAIStrategyApply} 
+                        />
+
                         <ConfigPanel
-                            strategy={strategy} setStrategy={setStrategy}
-                            params={params} setParams={setParams}
+                            strategy={strategy}
+                            setStrategy={setStrategy}
+                            params={params}
+                            setParams={setParams}
                             onRun={() => {}} 
-                            fees={fees} setFees={setFees}
-                            slippage={slippage} setSlippage={setSlippage}
+                            fees={fees}
+                            setFees={setFees}
+                            slippage={slippage}
+                            setSlippage={setSlippage}
                         />
                     </div>
 
-                    {/* RIGHT COLUMN */}
                     <div className="lg:col-span-8 flex flex-col gap-6">
                         
                         {/* --- MARKET BAR (TOP) --- */}
                         <MarketBar 
-                            ticker={ticker} onTickerCommit={handleTickerCommit}
-                            startDate={startDate} setStartDate={setStartDate}
-                            endDate={endDate} setEndDate={setEndDate}
+                            ticker={ticker}
+                            onTickerCommit={handleTickerCommit}
+                            startDate={startDate}
+                            setStartDate={setStartDate}
+                            endDate={endDate}
+                            setEndDate={setEndDate}
                         />
 
                         {error && (
                             <div className="p-4 bg-white border border-red-200 rounded-2xl flex items-center gap-3 text-red-600 text-sm animate-in fade-in slide-in-from-top-2 shadow-lg">
-                                <AlertCircle size={20} /> <span className="font-bold">Error:</span><span>{error}</span>
+                                <AlertCircle size={20} />
+                                <span className="font-bold">Error:</span>
+                                <span>{error}</span>
                             </div>
                         )}
 
                         {loading ? (
                             <div className="h-[600px] flex items-center justify-center flex-col gap-6 text-sakura-400 animate-pulse bg-white/90 backdrop-blur-sm rounded-[2rem] border border-sakura-100 shadow-xl">
                                 <div className="text-6xl animate-bounce">🌸</div>
-                                <p className="text-slate-400 font-bold font-mono tracking-widest text-lg">ANALYZING MARKET DATA...</p>
+                                <p className="text-slate-400 font-bold font-mono tracking-widest text-lg">
+                                    ANALYZING MARKET DATA...
+                                </p>
                             </div>
                         ) : (
                             <ResultsView
@@ -322,8 +393,13 @@ const App: React.FC = () => {
 
 const CreditItem = ({ name, role, icon: Icon, color }: any) => (
     <div className="flex items-start gap-4 p-3 hover:bg-slate-50 rounded-xl transition-colors group cursor-default">
-        <div className={`p-2 rounded-lg ${color} group-hover:scale-110 transition-transform duration-300`}><Icon size={18} /></div>
-        <div><h3 className="font-bold text-slate-700 text-sm">{name}</h3><p className="text-xs text-slate-500 leading-relaxed">{role}</p></div>
+        <div className={`p-2 rounded-lg ${color} group-hover:scale-110 transition-transform duration-300`}>
+            <Icon size={18} />
+        </div>
+        <div>
+            <h3 className="font-bold text-slate-700 text-sm">{name}</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">{role}</p>
+        </div>
     </div>
 );
 

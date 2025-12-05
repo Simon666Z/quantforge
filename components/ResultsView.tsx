@@ -11,7 +11,7 @@ interface ResultsViewProps {
   strategyType: StrategyType;
   onTradeClick?: (data: any) => void;
   onRequestDiagnosis?: () => void;
-  onRequestCode?: () => void; // --- NEW: Code Request Handler ---
+  onRequestCode?: () => void; 
 }
 
 const ANIMATION_DURATION = 500;
@@ -130,10 +130,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         if (localMax > maxVal) maxVal = localMax;
       }
 
-      return {
-        ...d,
-        index: i,
-      };
+      return { ...d, index: i };
     });
 
     const padding = (maxVal - minVal) * 0.05;
@@ -173,7 +170,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
 
   const isProfit = result.metrics.totalReturn >= 0;
   const enableAnimation = chartData.length < 300; 
-
   const commonAnimProps = {
     isAnimationActive: enableAnimation,
     animationDuration: ANIMATION_DURATION,
@@ -192,31 +188,10 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
       `}</style>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetricCard 
-          label="Total Return" 
-          value={`${isProfit ? '+' : ''}${result.metrics.totalReturn.toFixed(2)}%`}
-          icon={isProfit ? TrendingUp : TrendingDown}
-          color={isProfit ? 'bg-emerald-500' : 'bg-rose-500'}
-        />
-        <MetricCard 
-          label="Final Capital" 
-          value={`$${Math.round(result.metrics.finalCapital).toLocaleString()}`}
-          subValue={`from $${result.metrics.initialCapital.toLocaleString()}`}
-          icon={DollarSign}
-          color="bg-amber-500"
-        />
-        <MetricCard 
-          label="Total Actions"
-          value={result.metrics.tradeCount}
-          icon={Activity}
-          color="bg-sky-500"
-        />
-        <MetricCard 
-          label="Max Drawdown" 
-          value={`-${result.metrics.maxDrawdown.toFixed(2)}%`}
-          icon={TrendingDown}
-          color="bg-rose-500"
-        />
+        <MetricCard label="Total Return" value={`${isProfit ? '+' : ''}${result.metrics.totalReturn.toFixed(2)}%`} icon={isProfit ? TrendingUp : TrendingDown} color={isProfit ? 'bg-emerald-500' : 'bg-rose-500'} />
+        <MetricCard label="Final Capital" value={`$${Math.round(result.metrics.finalCapital).toLocaleString()}`} subValue={`from $${result.metrics.initialCapital.toLocaleString()}`} icon={DollarSign} color="bg-amber-500" />
+        <MetricCard label="Total Actions" value={result.metrics.tradeCount} icon={Activity} color="bg-sky-500" />
+        <MetricCard label="Max Drawdown" value={`-${result.metrics.maxDrawdown.toFixed(2)}%`} icon={TrendingDown} color="bg-rose-500" />
       </div>
 
       <Card className="h-[450px] flex flex-col border-0 shadow-xl shadow-sakura-100/20 bg-white/80 backdrop-blur-sm">
@@ -227,14 +202,14 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                 Price Action & Signals
             </h3>
             
-            <div className="flex gap-2">
-                {/* --- NEW: Code Button --- */}
+            <div className="flex gap-3">
+                {/* --- NEW: High Contrast Code Button with Animation --- */}
                 <button 
                     onClick={onRequestCode}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-full hover:bg-slate-200 hover:text-slate-800 transition-colors shadow-sm"
+                    className="flex items-center gap-2 px-4 py-1.5 bg-slate-800 text-white text-xs font-bold rounded-full shadow-lg shadow-slate-300 hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-300 group border border-slate-700"
                     title="View Strategy Code"
                 >
-                    <Code2 size={14} />
+                    <Code2 size={14} className="group-hover:text-sakura-300 transition-colors" />
                     Code
                 </button>
 
@@ -263,53 +238,12 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                   <stop offset="95%" stopColor="#38bdf8" stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              
-              <XAxis 
-                dataKey="index" 
-                type="number"
-                domain={[0, maxIndex]}
-                scale="linear" 
-                minTickGap={50} 
-                tick={{fontSize: 10, fill: '#64748b'}} 
-                tickLine={false} 
-                axisLine={{stroke: '#f1f5f9'}} 
-                tickFormatter={(index) => chartData[index] ? chartData[index].date : ''}
-                allowDecimals={false}
-              />
-              
-              <YAxis 
-                domain={yDomain as [number, number]} 
-                width={60}
-                tick={{fontSize: 10, fill: '#64748b'}} 
-                tickLine={false} 
-                axisLine={{stroke: '#f1f5f9'}} 
-                tickFormatter={(val) => `$${Number(val).toFixed(2)}`} 
-              />
-              
-              <Tooltip 
-                content={<CustomChartTooltip dataRef={chartData} />} 
-                cursor={{ stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '4 4' }} 
-                isAnimationActive={false}
-              />
-              
-              <Legend 
-                verticalAlign="bottom" 
-                height={36} 
-                wrapperStyle={{ 
-                    paddingTop: '10px', 
-                    display: 'flex', 
-                    justifyContent: 'center', 
-                    alignItems: 'center',
-                    gap: '20px',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: '#64748b'
-                }}
-              />
-              
+              <XAxis dataKey="index" type="number" domain={[0, maxIndex]} scale="linear" minTickGap={50} tick={{fontSize: 10, fill: '#64748b'}} tickLine={false} axisLine={{stroke: '#f1f5f9'}} tickFormatter={(index) => chartData[index] ? chartData[index].date : ''} allowDecimals={false} />
+              <YAxis domain={yDomain as [number, number]} width={60} tick={{fontSize: 10, fill: '#64748b'}} tickLine={false} axisLine={{stroke: '#f1f5f9'}} tickFormatter={(val) => `$${Number(val).toFixed(2)}`} />
+              <Tooltip content={<CustomChartTooltip dataRef={chartData} />} cursor={{ stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '4 4' }} isAnimationActive={false} />
+              <Legend verticalAlign="bottom" height={36} wrapperStyle={{ paddingTop: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '20px', fontSize: '12px', fontWeight: 600, color: '#64748b' }} />
               <Bar dataKey="close" name="HoverTrigger" fill="transparent" barSize={Number.MAX_SAFE_INTEGER} isAnimationActive={false} legendType="none" />
               <Area type="monotone" dataKey="close" stroke="#38bdf8" strokeWidth={2} fill="url(#colorPrice)" name="Price" legendType="circle" activeDot={enableAnimation ? {r: 4} : false} {...commonAnimProps} />
-
               {strategyType === StrategyType.SMA_CROSSOVER && (
                 <>
                   <Line type="monotone" dataKey="smaShort" stroke="#ec4899" dot={false} strokeWidth={2} name="Short SMA" legendType="plainline" activeDot={false} {...commonAnimProps} />
@@ -328,13 +262,8 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                   <Line type="monotone" dataKey="lowerBand" stroke="#f472b6" dot={false} strokeDasharray="3 3" strokeWidth={1} name="Lower Band" legendType="plainline" activeDot={false} {...commonAnimProps} />
                 </>
               )}
-
-              <Scatter 
-                data={buySignals} name="Buy Signal" dataKey="buySignal" fill="#10b981" shape={<TriangleShape />} legendType="triangle" onClick={(data) => { if (onTradeClick) onTradeClick(data); }} style={{ cursor: 'pointer' }} {...commonAnimProps}
-              />
-              <Scatter 
-                data={sellSignals} name="Sell Signal" dataKey="sellSignal" fill="#f43f5e" shape={<TriangleShape />} legendType="triangle" onClick={(data) => { if (onTradeClick) onTradeClick(data); }} style={{ cursor: 'pointer' }} {...commonAnimProps}
-              />
+              <Scatter data={buySignals} name="Buy Signal" dataKey="buySignal" fill="#10b981" shape={<TriangleShape />} legendType="triangle" onClick={(data) => { if (onTradeClick) onTradeClick(data); }} style={{ cursor: 'pointer' }} {...commonAnimProps} />
+              <Scatter data={sellSignals} name="Sell Signal" dataKey="sellSignal" fill="#f43f5e" shape={<TriangleShape />} legendType="triangle" onClick={(data) => { if (onTradeClick) onTradeClick(data); }} style={{ cursor: 'pointer' }} {...commonAnimProps} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -374,7 +303,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         </Card>
       )}
 
-      {/* Trade Log */}
       <Card className="border-0 shadow-lg shadow-slate-100/50 bg-white backdrop-blur">
         <h3 className="font-bold text-slate-600 mb-4 text-sm uppercase tracking-wide flex items-center gap-2">
           <Activity size={16} className="text-slate-400" />
@@ -392,7 +320,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             </thead>
             <tbody className="text-slate-600">
               {result.trades.slice().reverse().map((trade, i) => (
-                <tr key={i} className="group hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
+                <tr key={i} className="group transition-colors border-b border-slate-50 last:border-0 odd:bg-white even:bg-slate-50/60 hover:!bg-sakura-50/30">
                   <td className="py-3 pl-4 font-mono text-xs">{new Date(trade.date).toLocaleDateString()}</td>
                   <td className="py-3">
                     <Badge color={trade.type === 'BUY' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm' : 'bg-rose-100 text-rose-700 border border-rose-200 shadow-sm'}>
