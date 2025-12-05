@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { StrategyType, StrategyParams, DEFAULT_PARAMS, BacktestResult, DiagnosisContent, AIConfig } from '../types';
 
 const BASE_SYSTEM_PROMPT = `
-ROLE: You are "Sakura", an elite Quantitative Trading Mentor.
+ROLE: You are an elite Quantitative Trading Mentor.
 GOAL: Configure the backtesting engine or explain concepts based on user input.
 
 === CAPABILITY MATRIX (STRICT) ===
