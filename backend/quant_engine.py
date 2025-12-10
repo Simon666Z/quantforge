@@ -1,6 +1,7 @@
 import vectorbt as vbt
 import pandas as pd
 import numpy as np
+from typing import Optional
 
 class SakuraEngine:
     def __init__(self, data: pd.DataFrame):
@@ -38,7 +39,8 @@ class SakuraEngine:
         adx = dx.rolling(period).mean()
         return adx
 
-    def run_strategy(self, strategy_type: str, params: dict, capital: float = 10000.0, fees: float = 0.001, slippage: float = 0.001):
+    def run_strategy(self, strategy_type: str, params: dict, capital: float = 10000.0, fees: float = 0.001, slippage: float = 0.001,
+                     metrics_start: Optional[pd.Timestamp] = None, metrics_end: Optional[pd.Timestamp] = None):
         
         entries = pd.Series(False, index=self.close.index)
         exits = pd.Series(False, index=self.close.index)
@@ -196,18 +198,34 @@ class SakuraEngine:
 
         pf = vbt.Portfolio.from_signals(**run_params)
 
+        # If a metrics window is provided, slice the portfolio to this window
+        pf_used = pf
+        try:
+            if metrics_start is not None and metrics_end is not None:
+                # Use time-based slicing; vectorbt Portfolio supports .loc over the underlying index
+                pf_used = pf.loc[metrics_start:metrics_end]
+        except Exception:
+            # Fall back to original portfolio if slicing not supported
+            pf_used = pf
+
         # --- 结果解析 ---
-        sharpe = pf.sharpe_ratio()
+        sharpe = pf_used.sharpe_ratio()
         if np.isnan(sharpe): sharpe = 0.0
-        win_rate = pf.trades.win_rate()
+        win_rate = pf_used.trades.win_rate()
         if np.isnan(win_rate): win_rate = 0.0
-        action_count = int(pf.orders.count())
+        action_count = int(pf_used.orders.count())
+
+        # For consistency within the visible window, set initialCapital to the equity at the window start
+        try:
+            start_value = float(pf_used.value().iloc[0])
+        except Exception:
+            start_value = float(capital)
 
         metrics = {
-            "totalReturn": float(pf.total_return() * 100),
-            "finalCapital": float(pf.final_value()),
-            "initialCapital": float(capital),
-            "maxDrawdown": float(pf.max_drawdown() * 100),
+            "totalReturn": float(pf_used.total_return() * 100),
+            "finalCapital": float(pf_used.final_value()),
+            "initialCapital": start_value,
+            "maxDrawdown": float(pf_used.max_drawdown() * 100),
             "winRate": float(win_rate * 100),
             "tradeCount": action_count,
             "sharpeRatio": float(sharpe)
@@ -220,6 +238,13 @@ class SakuraEngine:
                 for i, row in orders_record.iterrows():
                     dt = row['Timestamp']
                     date_str = dt.strftime('%Y-%m-%d') if hasattr(dt, 'strftime') else str(dt)
+                    # Filter orders outside the requested metrics window if provided
+                    if metrics_start is not None and metrics_end is not None and hasattr(dt, 'to_pydatetime'):
+                        try:
+                            if dt < metrics_start or dt > metrics_end:
+                                continue
+                        except Exception:
+                            pass
                     side = row['Side']
                     type_str = "BUY" if side == 'Buy' else "SELL"
                     trades_list.append({

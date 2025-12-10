@@ -288,7 +288,16 @@ def run_backtest(req: BacktestRequest):
         if df.loc[user_view_mask].empty: raise HTTPException(status_code=404, detail="Empty data range.")
 
         engine = SakuraEngine(df)
-        result = engine.run_strategy(req.strategy, req.params, capital=req.params.get('initialCapital', 10000), fees=req.fees, slippage=req.slippage)
+        # Pass the user's requested window so metrics & trades are computed strictly within it
+        result = engine.run_strategy(
+            req.strategy,
+            req.params,
+            capital=req.params.get('initialCapital', 10000),
+            fees=req.fees,
+            slippage=req.slippage,
+            metrics_start=req_start,
+            metrics_end=req_end
+        )
         
         mask = (df['date'] >= req_start) & (df['date'] <= req_end)
         filtered_df = df.loc[mask].copy()
