@@ -34,6 +34,7 @@ Structure:
   "intent": "CONFIGURE" | "EXPLAIN" | "CHAT",
   "strategy": "ENUM_VALUE",      // Required if intent is CONFIGURE
   "params": { "paramName": 123 }, // Only changed params
+  "ticker": "AAPL",               // Optional: If user mentions a specific asset
   "explanation": "Short, professional rationale.",
   "content": "Explanation text...", // If intent is EXPLAIN
   "message": "Chat text...",        // If intent is CHAT
@@ -41,8 +42,8 @@ Structure:
 }
 
 === EXAMPLES ===
-User: "Use Turtle strategy"
-JSON: { "intent": "CONFIGURE", "strategy": "TURTLE", "params": { "turtleEntry": 20, "turtleExit": 10 }, "explanation": "Activated Turtle Trading rules: Buy 20-day highs, sell 10-day lows.", "suggestions": ["Add a Trailing Stop", "Explain Donchian Channels"] }
+User: "Use Turtle strategy on NVDA"
+JSON: { "intent": "CONFIGURE", "strategy": "TURTLE", "ticker": "NVDA", "params": { "turtleEntry": 20, "turtleExit": 10 }, "explanation": "Activated Turtle Trading rules for NVDA.", "suggestions": ["Add a Trailing Stop", "Explain Donchian Channels"] }
 
 User: "Make it safer"
 JSON: { "intent": "CONFIGURE", "strategy": "TREND_RSI", "params": { "stopLoss": 5, "trendMa": 200 }, "explanation": "Switched to Trend+RSI filter and added a 5% hard stop loss for capital preservation.", "suggestions": ["What is Sharpe Ratio?", "Optimize RSI period"] }
@@ -52,6 +53,7 @@ export interface AIResponse {
   intent: 'CONFIGURE' | 'EXPLAIN' | 'CHAT' | 'ERROR';
   strategy?: StrategyType;
   params?: Partial<StrategyParams>;
+  ticker?: string;
   explanation?: string;
   topic?: string;
   content?: string;

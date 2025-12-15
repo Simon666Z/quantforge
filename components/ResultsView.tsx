@@ -113,7 +113,12 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
 }) => {
   const { chartData, buySignals, sellSignals, highlightedSignals, maxIndex, yDomain, splitIndex } = useMemo(() => {
     if (!result?.data?.length) return { chartData: [], buySignals: [], sellSignals: [], highlightedSignals: [], maxIndex: 0, yDomain: [0, 100], splitIndex: 0 };
+    
     const processed = result.data.map((d, i) => ({ ...d, index: i }));
+    
+    // Create a map of date -> index for quick lookup
+    const dateToIndex = new Map(processed.map(d => [d.date, d.index]));
+    
     let min=Infinity, max=-Infinity;
     processed.forEach(d => { 
         const vals = [d.low, d.high, d.close].filter(v => v!=null && Number.isFinite(v)); 
@@ -121,8 +126,35 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
     });
     if (!Number.isFinite(min)) { min=0; max=100; }
     const pad = (max-min)*0.05;
-    const buys = processed.filter(d => d.buySignal).map(d => ({ index: d.index, buySignal: d.buySignal, ...d, type: 'BUY', date: d.date }));
-    const sells = processed.filter(d => d.sellSignal).map(d => ({ index: d.index, sellSignal: d.sellSignal, ...d, type: 'SELL', date: d.date }));
+
+    // Use result.trades (actual executions) instead of result.data signals
+    const buys: any[] = [];
+    const sells: any[] = [];
+
+    if (result.trades) {
+        result.trades.forEach((t: any) => {
+            const idx = dateToIndex.get(t.date);
+            if (idx !== undefined) {
+                const tradePoint = { 
+                    index: idx, 
+                    price: t.price, 
+                    type: t.type, 
+                    date: t.date, 
+                    reason: t.reason,
+                    // For plotting, we need a value. Use the trade price.
+                    buySignal: t.type === 'BUY' ? t.price : undefined,
+                    sellSignal: t.type === 'SELL' ? t.price : undefined
+                };
+                if (t.type === 'BUY') buys.push(tradePoint);
+                else sells.push(tradePoint);
+            }
+        });
+    } else {
+        // Fallback to signals if trades are missing (shouldn't happen with new backend)
+        processed.filter(d => d.buySignal).forEach(d => buys.push({ index: d.index, buySignal: d.buySignal, ...d, type: 'BUY', date: d.date }));
+        processed.filter(d => d.sellSignal).forEach(d => sells.push({ index: d.index, sellSignal: d.sellSignal, ...d, type: 'SELL', date: d.date }));
+    }
+
     const highlights = [...buys, ...sells].filter(d => highlightedDates.includes(d.date));
 
     return { chartData: processed, buySignals: buys, sellSignals: sells, highlightedSignals: highlights, maxIndex: processed.length-1, yDomain: [Math.max(0, min-pad), max+pad], splitIndex: Math.floor(processed.length*0.7) };

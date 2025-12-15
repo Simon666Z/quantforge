@@ -19,7 +19,7 @@ const BaseMarkdownComponents = {
 };
 
 interface ChatInterfaceProps {
-  onApplyStrategy: (strategy: StrategyType, params: StrategyParams) => void;
+  onApplyStrategy: (strategy: StrategyType, params: StrategyParams, ticker?: string) => void;
   onTabChange: (tab: 'chat' | 'diagnosis') => void;
   diagnosisResult: DiagnosisContent | null;
   isDiagnosisLoading: boolean;
@@ -108,8 +108,8 @@ export const ChatInterface = forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({
       if (response.message?.includes("API Key")) setShowSettings(true);
     } 
     else if (response.intent === 'CONFIGURE') {
-      setMessages(prev => [...prev, { id: Date.now()+1, sender: 'ai', type: 'config', content: response.explanation, meta: { strategy: response.strategy, params: response.params } }]);
-      if (response.strategy && response.params) onApplyStrategy(response.strategy, response.params as StrategyParams);
+      setMessages(prev => [...prev, { id: Date.now()+1, sender: 'ai', type: 'config', content: response.explanation, meta: { strategy: response.strategy, params: response.params, ticker: response.ticker } }]);
+      if (response.strategy && response.params) onApplyStrategy(response.strategy, response.params as StrategyParams, response.ticker);
     }
     else {
       setMessages(prev => [...prev, { id: Date.now()+1, sender: 'ai', type: 'text', content: response.message || (response.content) }]);

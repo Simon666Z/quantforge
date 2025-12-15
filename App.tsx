@@ -149,7 +149,12 @@ const App: React.FC = () => {
     const handleRequestStressTest = async () => { setIsStressModalOpen(true); setStressLoading(true); setStressResults(null); const results = await runStressTest(ticker, strategy, params, fees/100, slippage/100); setStressResults(results); setStressLoading(false); };
     const handleTickerCommit = (t: string) => { if (t !== ticker) setTicker(t); setIsSubscribed(false); };
     const handleResetApp = () => { if(window.confirm("Reset App?")) window.location.reload(); };
-    const handleAIStrategyApply = (s: StrategyType, p: StrategyParams) => { setResult(null); setStrategy(s); setParams({...p}); };
+    const handleAIStrategyApply = (s: StrategyType, p: StrategyParams, t?: string) => { 
+        setResult(null); 
+        setStrategy(s); 
+        setParams({...p}); 
+        if (t) setTicker(t);
+    };
     
     useEffect(() => { if (showCredits) setIsCreditsMounted(true); else setTimeout(() => setIsCreditsMounted(false), 300); }, [showCredits]);
 

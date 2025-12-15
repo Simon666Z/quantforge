@@ -257,7 +257,9 @@ def search_ticker(q: str = Query(..., min_length=1)):
                 "exchange": item.get('exchange', 'Unknown')
             })
         return results
-    except: return []
+    except Exception as e:
+        print(f"Search error: {e}")
+        return []
 
 @app.post("/v1/code-gen", tags=["code"])
 def generate_code(req: CodeGenRequest):
