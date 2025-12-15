@@ -5,13 +5,14 @@ import { ChatInterface, ChatInterfaceRef } from './components/ChatInterface';
 import { StrategyType, StrategyParams, DEFAULT_PARAMS, BacktestResult, SavedStrategy, DiagnosisContent, AIConfig } from './types';
 import { runBacktest, generateStrategyCode, runStressTest, StressTestResult, checkRealtimeSignal } from './services/quantEngine';
 import { generateBacktestReport, analyzeTradeContext } from './services/geminiService';
-import { AlertCircle, RefreshCcw, X, Users, Code2, Database, Palette, Hammer, Radar, Bell, Book, BellRing, Loader2 } from 'lucide-react';
+import { AlertCircle, RefreshCcw, X, Users, Code2, Database, Palette, Hammer, Radar, Bell, Book, BellRing, Loader2, User, LogIn, LogOut } from 'lucide-react';
 import { MarketBar } from './components/MarketBar';
 import { CodeViewer } from './components/CodeViewer';
 import { StressTestModal } from './components/StressTestModal';
 import { ScreenerModal } from './components/ScreenerModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { LibraryPanel } from './components/LibraryPanel';
+import { AuthModal } from './components/AuthModal';
 
 const InputModal = ({ isOpen, title, onConfirm, onCancel }: any) => {
     const [val, setVal] = useState("");
@@ -56,6 +57,8 @@ const App: React.FC = () => {
     const [isScreenerOpen, setIsScreenerOpen] = useState(false);
     const [isLibraryOpen, setIsLibraryOpen] = useState(false);
     const [saveModalOpen, setSaveModalOpen] = useState(false);
+    const [isAuthOpen, setIsAuthOpen] = useState(false);
+    const [user, setUser] = useState<string | null>(null);
     
     const [diagnosisResult, setDiagnosisResult] = useState<DiagnosisContent | null>(null);
     const [diagnosisLoading, setDiagnosisLoading] = useState(false);
@@ -83,6 +86,11 @@ const App: React.FC = () => {
             addToast("Alerts Off", `Stopped monitoring.`, "info");
         }
     };
+
+    useEffect(() => {
+        const storedUser = localStorage.getItem('quantforge_user');
+        if (storedUser) setUser(storedUser);
+    }, []);
 
     useEffect(() => {
         const executeBacktest = async () => {
@@ -166,6 +174,15 @@ const App: React.FC = () => {
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
+                            {user ? (
+                                <button onClick={() => setIsAuthOpen(true)} className="h-12 px-4 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 font-bold flex items-center gap-2 hover:bg-indigo-100 transition-all shadow-sm" title="Account">
+                                    <User size={20} /> <span className="hidden md:inline">{user}</span>
+                                </button>
+                            ) : (
+                                <button onClick={() => setIsAuthOpen(true)} className="h-12 px-4 rounded-xl bg-white border border-slate-200 text-slate-500 font-bold flex items-center gap-2 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all shadow-sm" title="Login">
+                                    <LogIn size={20} /> <span className="hidden md:inline">Login</span>
+                                </button>
+                            )}
                             <button onClick={() => setIsLibraryOpen(true)} className="w-12 h-12 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-indigo-500 hover:border-indigo-200 hover:bg-indigo-50 flex items-center justify-center transition-all shadow-sm group relative" title="Library"><Book size={20} /></button>
                             <button onClick={() => setIsScreenerOpen(true)} className="w-12 h-12 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-sakura-500 hover:border-sakura-200 hover:bg-sakura-50 flex items-center justify-center transition-all shadow-sm group relative" title="Screener"><Radar size={20} className="group-hover:animate-spin-slow" /></button>
                             <button onClick={handleToggleSubscribe} className={`w-12 h-12 rounded-xl border flex items-center justify-center transition-all shadow-sm group relative ${isSubscribed ? 'bg-amber-400 border-amber-500 text-white' : 'bg-white border-slate-200 text-slate-400 hover:text-amber-500 hover:border-amber-200 hover:bg-amber-50'}`} title="Alerts">{isSubscribed ? <BellRing size={20} className="animate-pulse" fill="currentColor"/> : <Bell size={20} />}</button>
@@ -248,7 +265,14 @@ const App: React.FC = () => {
 
             <InputModal isOpen={saveModalOpen} title="Save Strategy" onConfirm={handleSaveConfirm} onCancel={() => setSaveModalOpen(false)} />
             <ToastContainer toasts={toasts} onRemove={removeToast} />
-            <LibraryPanel isOpen={isLibraryOpen} onClose={() => setIsLibraryOpen(false)} onLoadStrategy={handleLoadStrategy} />
+            <LibraryPanel isOpen={isLibraryOpen} onClose={() => setIsLibraryOpen(false)} onLoadStrategy={handleLoadStrategy} currentUser={user} />
+            <AuthModal 
+                isOpen={isAuthOpen} 
+                onClose={() => setIsAuthOpen(false)} 
+                onLoginSuccess={(u: string) => { setUser(u); localStorage.setItem('quantforge_user', u); }} 
+                currentUser={user}
+                onLogout={() => { setUser(null); localStorage.removeItem('quantforge_user'); }}
+            />
             <CodeViewer isOpen={isCodeModalOpen} onClose={() => setIsCodeModalOpen(false)} codes={generatedCodes} />
             <StressTestModal isOpen={isStressModalOpen} onClose={() => setIsStressModalOpen(false)} results={stressResults} loading={stressLoading} ticker={ticker} />
             <ScreenerModal isOpen={isScreenerOpen} onClose={() => setIsScreenerOpen(false)} strategy={strategy} params={params} onSelectTicker={(t) => { setTicker(t); setIsScreenerOpen(false); }} />

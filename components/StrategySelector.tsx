@@ -56,8 +56,17 @@ const getActiveInfo = (id: StrategyType) => {
 export const StrategySelector: React.FC<StrategySelectorProps> = ({ value, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+      if (isOpen) setShouldRender(true);
+      else {
+          const timer = setTimeout(() => setShouldRender(false), 500);
+          return () => clearTimeout(timer);
+      }
+  }, [isOpen]);
 
   const activeInfo = getActiveInfo(value);
 
@@ -87,7 +96,7 @@ export const StrategySelector: React.FC<StrategySelectorProps> = ({ value, onCha
       </div>
 
       {/* Side Menu Portal */}
-      {mounted && createPortal(
+      {mounted && shouldRender && createPortal(
         <div className={`fixed inset-0 z-[9999] ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
           <div 
             className={`absolute inset-0 bg-slate-900/20 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${isOpen ? 'opacity-100' : 'opacity-0'}`}
