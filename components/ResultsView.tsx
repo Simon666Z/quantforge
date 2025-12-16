@@ -67,7 +67,7 @@ const NormalTriangle = (props: any) => {
     if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
     const isBuy = payload?.type === 'BUY';
     const color = isBuy ? '#10b981' : '#f43f5e';
-    const size = 12; 
+    const size = 9;
     const d = isBuy 
         ? `M${cx},${cy - size} L${cx + size},${cy + size} L${cx - size},${cy + size} Z` 
         : `M${cx},${cy + size} L${cx + size},${cy - size} L${cx - size},${cy - size} Z`;
@@ -99,7 +99,7 @@ const RiskAnalysisPanel = ({ metrics }: { metrics: any }) => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-0 shrink-0">
             <div className="bg-white rounded-xl p-4 border border-slate-100 flex flex-col gap-2 relative group cursor-help shadow-sm">
                 <div className="flex justify-between"><div className="flex items-center gap-2 text-slate-600 font-bold text-sm uppercase tracking-wider"><Shield size={15} /> Sharpe Ratio</div><span className={`px-2 py-0.5 rounded text-[11px] font-black uppercase ${sStat.c}`}>{sStat.t}</span></div>
-                <div className="text-3xl font-mono font-bold text-slate-700">{metrics.sharpeRatio.toFixed(2)}</div>
+                <div className="text-3xl font-mono font-bold text-amber-700">{metrics.sharpeRatio.toFixed(2)}</div>
                 {/* Tooltip */}
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-slate-800 text-white text-sm rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
                     <p className="font-bold mb-1">Sharpe Ratio</p>
@@ -121,7 +121,7 @@ const RiskAnalysisPanel = ({ metrics }: { metrics: any }) => {
             </div>
             <div className="bg-white rounded-xl p-4 border border-slate-100 flex flex-col gap-2 relative group cursor-help shadow-sm">
                 <div className="flex justify-between"><div className="flex items-center gap-2 text-slate-600 font-bold text-sm uppercase tracking-wider"><Zap size={15} /> Positive Time</div></div>
-                <div className="text-3xl font-mono font-bold text-slate-700">{metrics.winRate.toFixed(1)}%</div>
+                <div className="text-3xl font-mono font-bold text-teal-700">{metrics.winRate.toFixed(1)}%</div>
                 {/* Tooltip */}
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-slate-800 text-white text-sm rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
                     <p className="font-bold mb-1">Positive Time</p>
@@ -285,7 +285,27 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               </div>
             </div>
           </div>
-          <style>{`.recharts-wrapper { outline: none !important; } .recharts-layer path { outline: none !important; }`}</style>
+          <style>{`
+              .recharts-wrapper, 
+              .recharts-wrapper:focus, 
+              .recharts-wrapper:active { 
+                outline: none !important; 
+                border: none !important; 
+                box-shadow: none !important; 
+              }
+              .recharts-wrapper *:focus { 
+                outline: none !important; 
+                border: none !important; 
+                box-shadow: none !important; 
+              }
+              .recharts-surface { 
+                outline: none !important; 
+              }
+              .recharts-layer path { 
+                outline: none !important; 
+              }
+            `}
+          </style>
           <div className="h-[420px] w-full -ml-2">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
@@ -353,7 +373,27 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   // Full View (default) - Everything together
   return (
     <div className="flex flex-col gap-6 h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <style>{`.recharts-wrapper { outline: none !important; } .recharts-layer path { outline: none !important; }`}</style>
+        <style>{`
+          .recharts-wrapper, 
+          .recharts-wrapper:focus, 
+          .recharts-wrapper:active { 
+            outline: none !important; 
+            border: none !important; 
+            box-shadow: none !important; 
+          }
+          .recharts-wrapper *:focus { 
+            outline: none !important; 
+            border: none !important; 
+            box-shadow: none !important; 
+          }
+          .recharts-surface { 
+            outline: none !important; 
+          }
+          .recharts-layer path { 
+            outline: none !important; 
+          }
+        `}
+        </style>
       
       {/* Top Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">

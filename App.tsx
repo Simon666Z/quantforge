@@ -200,15 +200,15 @@ const App: React.FC = () => {
 
             <div className="relative z-20 bg-white/80 backdrop-blur-sm">
                 <div className="max-w-7xl mx-auto px-4 md:px-8 pt-6 pb-6">
-                    <header className="flex items-center justify-between select-none">
+                    <header className="flex flex-col md:flex-row items-center justify-between select-none gap-4 md:gap-0">
                         <div className="flex items-center gap-6 animate-fade-in-up">
-                            <div onClick={() => setShowCredits(true)} className="btn-bouncy relative group w-20 h-20 bg-gradient-to-br from-sakura-400 to-rose-500 rounded-[1.5rem] border-2 border-white/50 shadow-[0_10px_25px_-5px_rgba(236,72,153,0.3),0_4px_10px_-3px_rgba(0,0,0,0.1)] flex items-center justify-center overflow-hidden transition-all duration-300 hover:-translate-y-1">
-                                <Hammer size={40} strokeWidth={2} className="text-white drop-shadow-md transform transition-transform duration-500 cubic-bezier(0.34, 1.56, 0.64, 1) group-hover:scale-110 group-hover:rotate-12" />
+                            <div onClick={() => setShowCredits(true)} className="btn-bouncy relative group w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-sakura-400 to-rose-500 rounded-[1.5rem] border-2 border-white/50 shadow-[0_10px_25px_-5px_rgba(236,72,153,0.3),0_4px_10px_-3px_rgba(0,0,0,0.1)] flex items-center justify-center overflow-hidden transition-all duration-300 hover:-translate-y-1">
+                                <Hammer size={30} strokeWidth={2} className="md:w-10 md:h-10 text-white drop-shadow-md transform transition-transform duration-500 cubic-bezier(0.34, 1.56, 0.64, 1) group-hover:scale-110 group-hover:rotate-12" />
                                 <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent pointer-events-none rounded-[1.5rem]"></div>
                                 <div className="absolute inset-0 rounded-[1.5rem] ring-1 ring-inset ring-white/20 pointer-events-none"></div>
                             </div>
                             <div onClick={handleResetApp} className="cursor-pointer group flex flex-col justify-center">
-                                <h1 className="text-5xl font-extrabold text-avatar tracking-tight leading-tight group-hover:text-sakura-500 transition-colors duration-300 flex items-center gap-3 drop-shadow-sm">QuantForge Pro</h1>
+                                <h1 className="text-4xl md:text-5xl font-extrabold text-avatar tracking-tight leading-tight group-hover:text-sakura-500 transition-colors duration-300 flex items-center gap-3 drop-shadow-sm">QuantForge Pro</h1>
                                 <p className="text-base text-avatar/50 font-bold tracking-wide">Interactive Quant Platform</p>
                             </div>
                         </div>
@@ -255,7 +255,7 @@ const App: React.FC = () => {
                 />
             </div>
 
-            <div className="relative z-10 w-full max-w-7xl mx-auto p-4 md:p-8 flex flex-col mt-8">
+            <div className="relative z-10 w-full max-w-7xl mx-auto p-4 md:p-8 flex flex-col mt-8 w-screen">
                 {isCreditsMounted && (
                     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
                         <div className={`absolute inset-0 bg-slate-900/40 backdrop-blur-sm ${showCredits ? 'animate-backdrop-in' : 'animate-backdrop-out'}`} onClick={() => setShowCredits(false)} />
@@ -273,7 +273,7 @@ const App: React.FC = () => {
                     {!hasConfigured ? (
                         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8">
                             <div className="text-center mb-4 animate-fade-in-up px-4">
-                                <h2 className="text-4xl font-extrabold bg-gradient-to-r from-slate-700 via-sakura-600 to-indigo-600 bg-clip-text text-transparent mb-3 py-1">Welcome to QuantForge Pro</h2>
+                                <h2 className="text-4xl md:text-5xl font-extrabold text-white [-webkit-text-stroke:5px_#ff83a3] md:[-webkit-text-stroke:6px_#ff83a3] [paint-order:stroke_fill] mb-3 py-1">Welcome to QuantForge Pro</h2>
                                 <p className="text-slate-500 text-lg font-medium">Describe your trading strategy to the AI assistant below</p>
                             </div>
                             <div className="w-full max-w-4xl animate-fade-in-up animation-delay-200">
