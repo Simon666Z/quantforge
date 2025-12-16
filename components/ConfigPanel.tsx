@@ -69,7 +69,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
   const handleParamChange = (key: keyof StrategyParams, value: number) => setParams({ ...params, [key]: value });
 
   return (
-    <Card className="flex flex-col gap-6 border-0 shadow-xl shadow-sakura-100/50 bg-white/90 backdrop-blur-md h-full">
+    <Card className="flex flex-col gap-6 border-0 shadow-xl shadow-sakura-100/50 bg-white/90 backdrop-blur-md h-auto">
       <div className="flex items-center justify-between mb-2 shrink-0">
         <div className="flex items-center gap-2">
             <Settings2 className="text-sakura-400 animate-[spin_10s_linear_infinite]" size={20} />
@@ -84,7 +84,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
         </button>
       </div>
       
-      <div className="space-y-6 pr-1 custom-scrollbar overflow-y-auto flex-1">
+      <div className="space-y-6 pr-1">
         <div className="relative z-20">
            <Label>Initial Capital</Label>
            <div className="relative group focus-within:scale-[1.02] transition-transform duration-300 ease-out origin-left">

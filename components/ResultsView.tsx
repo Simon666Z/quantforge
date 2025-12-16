@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { ResponsiveContainer, ComposedChart, Area, Line, Bar, Scatter, XAxis, YAxis, Tooltip, Legend, ReferenceLine, ReferenceArea, Label } from 'recharts';
 import { BacktestResult, StrategyType } from '../types';
 import { Card, Badge } from './UI';
-import { TrendingUp, TrendingDown, DollarSign, Activity, BarChart3, Code2, Zap, Shield, Save, Sparkles } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Activity, BarChart3, Code2, Zap, Shield, Save, Sparkles, BookOpen } from 'lucide-react';
 
 interface ResultsViewProps {
   result: BacktestResult | null;
@@ -45,28 +45,31 @@ const CustomChartTooltip = React.memo(({ active, payload, label, dataRef }: any)
 });
 
 const HighlightedTriangle = (props: any) => {
-    const { cx, cy, fill, payload } = props;
+    const { cx, cy, payload } = props;
     if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
-    const isBuy = payload.type === 'BUY';
+    const isBuy = payload?.type === 'BUY';
+    const color = isBuy ? '#10b981' : '#f43f5e';
+    const size = 10; 
     const d = isBuy 
-        ? `M${cx},${cy - 12} L${cx + 12},${cy + 12} L${cx - 12},${cy + 12} Z` 
-        : `M${cx},${cy + 12} L${cx + 12},${cy - 12} L${cx - 12},${cy - 12} Z`;
+        ? `M${cx},${cy - size} L${cx + size},${cy + size} L${cx - size},${cy + size} Z` 
+        : `M${cx},${cy + size} L${cx + size},${cy - size} L${cx - size},${cy - size} Z`;
     return (
         <g>
-            <circle cx={cx} cy={cy} r={20} fill={fill} opacity={0.3} className="animate-ping origin-center" style={{animationDuration: '2s'}} />
-            <path d={d} fill={fill} stroke="white" strokeWidth={2} className="drop-shadow-lg" />
+            <path d={d} fill={color} stroke="white" strokeWidth={3} className="drop-shadow-xl" />
         </g>
     );
 };
 
 const NormalTriangle = (props: any) => {
-    const { cx, cy, fill, payload, isFocusMode } = props;
+    const { cx, cy, payload, isFocusMode } = props;
     if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
-    const isBuy = payload.type === 'BUY';
+    const isBuy = payload?.type === 'BUY';
+    const color = isBuy ? '#10b981' : '#f43f5e';
+    const size = 12; 
     const d = isBuy 
-        ? `M${cx},${cy - 6} L${cx + 6},${cy + 6} L${cx - 6},${cy + 6} Z` 
-        : `M${cx},${cy + 6} L${cx + 6},${cy - 6} L${cx - 6},${cy - 6} Z`;
-    return <path d={d} fill={fill} stroke="white" strokeWidth={1} style={{ opacity: isFocusMode ? 0.1 : 1, transition: 'opacity 0.5s' }} className="cursor-pointer hover:scale-150 transition-transform" />;
+        ? `M${cx},${cy - size} L${cx + size},${cy + size} L${cx - size},${cy + size} Z` 
+        : `M${cx},${cy + size} L${cx + size},${cy - size} L${cx - size},${cy - size} Z`;
+    return <path d={d} fill={color} stroke="none" style={{ opacity: isFocusMode ? 0.5 : 1, transition: 'opacity 0.3s' }} className="cursor-pointer hover:scale-125 transition-transform" />;
 };
 
 const MetricCard = ({ label, value, subValue, icon: Icon, color }: any) => {
@@ -107,6 +110,86 @@ const RiskAnalysisPanel = ({ metrics }: { metrics: any }) => {
         </div>
     );
 };
+
+const StrategySummary = ({ strategyType }: { strategyType: string }) => (
+    <Card className="p-0 border-0 shadow-lg shadow-slate-100/50 bg-white/80 backdrop-blur-sm shrink-0 overflow-hidden">
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+        <BookOpen size={18} className="text-indigo-500" /> 
+        <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">Strategy Guide</h3>
+      </div>
+
+      <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-10">
+        
+        {/* Left Column: Logic & Capital */}
+        <div className="space-y-8">
+            {/* Logic Section */}
+            <div>
+                <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2 text-sm">
+                    <Zap size={18} className="text-amber-500"/> 
+                    Strategy Logic: <span className="text-indigo-600">{strategyType.replace(/_/g, ' ')}</span>
+                </h4>
+                <div className="bg-amber-50/50 p-5 rounded-xl border border-amber-100 text-slate-700 text-sm leading-relaxed shadow-sm">
+                    {strategyType === 'SMA_CROSSOVER' && "Buys when short-term trend crosses above long-term trend (Golden Cross). Sells on Death Cross."}
+                    {strategyType === 'RSI_REVERSAL' && "Contrarian strategy. Buys when oversold (RSI < 30) and sells when overbought (RSI > 70)."}
+                    {strategyType === 'MACD' && "Momentum strategy. Buys when MACD line crosses above Signal line. Sells on bearish cross."}
+                    {strategyType === 'TURTLE' && "Trend following. Buys breakouts above N-day highs. Sells breakdowns below N-day lows."}
+                    {!['SMA_CROSSOVER', 'RSI_REVERSAL', 'MACD', 'TURTLE'].includes(strategyType) && "Uses technical indicators to identify high-probability entry and exit points automatically."}
+                </div>
+            </div>
+
+            {/* Capital Section */}
+            <div>
+                <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2 text-sm">
+                    <DollarSign size={18} className="text-emerald-500"/> Capital Allocation
+                </h4>
+                <p className="text-slate-600 text-sm leading-relaxed pl-4 border-l-4 border-emerald-200 py-1">
+                    Each trade utilizes <strong>100% of available equity</strong> (compounding). 
+                    Profits are reinvested into the next trade, maximizing potential growth but also increasing risk exposure.
+                </p>
+            </div>
+        </div>
+        
+        {/* Right Column: Legend & Metrics */}
+        <div className="space-y-8">
+            {/* Legend */}
+            <div>
+                <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2 text-sm">
+                    <Activity size={18} className="text-blue-500"/> Chart Legend
+                </h4>
+                <div className="grid grid-cols-1 gap-3">
+                    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="w-8 h-1 bg-sky-400 rounded-full shrink-0" />
+                        <span className="text-sm text-slate-600"><strong>Blue Line:</strong> Asset closing price.</span>
+                    </div>
+                    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[10px] border-b-emerald-500 shrink-0" />
+                        <span className="text-sm text-slate-600"><strong>Green Triangle:</strong> BUY signal executed.</span>
+                    </div>
+                    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[10px] border-t-rose-500 shrink-0" />
+                        <span className="text-sm text-slate-600"><strong>Red Triangle:</strong> SELL signal executed.</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Metrics Definitions */}
+            <div className="bg-slate-50 p-5 rounded-xl border border-slate-100">
+                <div className="grid grid-cols-2 gap-6">
+                    <div>
+                        <span className="block text-xs font-bold text-slate-700 uppercase mb-1">Total Return</span>
+                        <span className="text-xs text-slate-500 leading-relaxed block">Net profit or loss percentage over the selected period.</span>
+                    </div>
+                    <div>
+                        <span className="block text-xs font-bold text-slate-700 uppercase mb-1">Max Drawdown</span>
+                        <span className="text-xs text-slate-500 leading-relaxed block">The largest percentage drop from a peak to a trough.</span>
+                    </div>
+                </div>
+             </div>
+        </div>
+      </div>
+    </Card>
+);
 
 export const ResultsView: React.FC<ResultsViewProps> = ({ 
     result, strategyType, onTradeClick, onRequestCode, onRequestStressTest, onRequestDiagnosis, onSaveStrategy, highlightedDates = [], isFocusMode = false 
@@ -195,7 +278,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               <XAxis dataKey="index" type="number" domain={[0, maxIndex]} scale="linear" minTickGap={50} tick={{fontSize: 10, fill:'#64748b'}} tickLine={false} axisLine={{stroke:'#f1f5f9'}} tickFormatter={(index)=>chartData[index]?chartData[index].date:''} allowDecimals={false} />
               <YAxis domain={yDomain as [number,number]} width={60} tick={{fontSize: 10, fill:'#64748b'}} tickLine={false} axisLine={{stroke:'#f1f5f9'}} tickFormatter={(val)=>`$${Number(val).toFixed(0)}`} />
               <Tooltip content={<CustomChartTooltip dataRef={chartData} />} cursor={{ stroke:'#94a3b8', strokeWidth:1, strokeDasharray:'4 4' }} isAnimationActive={false} />
-              <Legend verticalAlign="bottom" height={36} wrapperStyle={{ paddingTop:'10px', fontSize:'12px', fontWeight:600, color:'#64748b' }} />
+              <Legend verticalAlign="bottom" height={36} wrapperStyle={{ paddingTop:'10px', fontSize:'14px', fontWeight:600, color:'#64748b' }} />
               <ReferenceArea x1={splitIndex} x2={maxIndex} fill="#f1f5f9" fillOpacity={0.5} />
               <ReferenceLine x={splitIndex} stroke="#94a3b8" strokeDasharray="3 3" strokeWidth={1}><Label value="OUT OF SAMPLE" position="insideTopRight" fill="#94a3b8" fontSize={10} fontWeight="bold" offset={10} /></ReferenceLine>
               <Bar dataKey="close" name="HoverTrigger" fill="transparent" barSize={Number.MAX_SAFE_INTEGER} isAnimationActive={false} legendType="none" />
@@ -213,6 +296,8 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
       </Card>
 
       <RiskAnalysisPanel metrics={result.metrics} />
+
+      <StrategySummary strategyType={strategyType} />
 
       {/* 4. Log Card - FIXED: max-h-[400px] prevents infinite scrolling */}
       <Card className="border-0 shadow-lg shadow-slate-100/50 bg-white backdrop-blur flex-1 flex flex-col min-h-[200px] max-h-[400px] overflow-hidden">

@@ -117,7 +117,7 @@ export const ChatInterface = forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({
   };
 
   return (
-    <div className="bg-white/85 backdrop-blur-md rounded-3xl shadow-xl shadow-sakura-100/50 border border-white/50 overflow-hidden flex flex-col h-[600px] transition-all duration-500 hover:shadow-2xl relative flex-none">
+    <div className="bg-white/85 backdrop-blur-md rounded-3xl shadow-xl shadow-sakura-100/50 border border-white/50 overflow-hidden flex flex-col flex-1 min-h-[600px] transition-all duration-500 hover:shadow-2xl relative">
       <style>{`.no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
 
       {/* Header */}

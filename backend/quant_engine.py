@@ -208,29 +208,7 @@ class SakuraEngine:
             # Fall back to original portfolio if slicing not supported
             pf_used = pf
 
-        # --- 结果解析 ---
-        sharpe = pf_used.sharpe_ratio()
-        if np.isnan(sharpe): sharpe = 0.0
-        win_rate = pf_used.trades.win_rate()
-        if np.isnan(win_rate): win_rate = 0.0
-        action_count = int(pf_used.orders.count())
-
-        # For consistency within the visible window, set initialCapital to the equity at the window start
-        try:
-            start_value = float(pf_used.value().iloc[0])
-        except Exception:
-            start_value = float(capital)
-
-        metrics = {
-            "totalReturn": float(pf_used.total_return() * 100),
-            "finalCapital": float(pf_used.final_value()),
-            "initialCapital": start_value,
-            "maxDrawdown": float(pf_used.max_drawdown() * 100),
-            "winRate": float(win_rate * 100),
-            "tradeCount": action_count,
-            "sharpeRatio": float(sharpe)
-        }
-
+        # --- 1. Generate Trades List First (to get accurate count) ---
         trades_list = []
         try:
             orders_record = pf.orders.records_readable
@@ -257,6 +235,28 @@ class SakuraEngine:
         except Exception as e:
             print(f"Orders Parsing Error: {e}")
             trades_list = []
+
+        # --- 2. Calculate Metrics ---
+        sharpe = pf_used.sharpe_ratio()
+        if np.isnan(sharpe): sharpe = 0.0
+        win_rate = pf_used.trades.win_rate()
+        if np.isnan(win_rate): win_rate = 0.0
+        
+        # For consistency within the visible window, set initialCapital to the equity at the window start
+        try:
+            start_value = float(pf_used.value().iloc[0])
+        except Exception:
+            start_value = float(capital)
+
+        metrics = {
+            "totalReturn": float(pf_used.total_return() * 100),
+            "finalCapital": float(pf_used.final_value()),
+            "initialCapital": start_value,
+            "maxDrawdown": float(pf_used.max_drawdown() * 100),
+            "winRate": float(win_rate * 100),
+            "tradeCount": len(trades_list), # EXACTLY matches the visible trades list
+            "sharpeRatio": float(sharpe)
+        }
 
         return {
             "metrics": metrics,

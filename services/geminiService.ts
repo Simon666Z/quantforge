@@ -147,18 +147,32 @@ export const generateBacktestReport = async (result: BacktestResult, strategy: S
         TRADES (Sample):
         ${tradesSample}
         
-        Provide JSON:
+        Provide JSON with this EXACT structure:
         {
-            "score": (0-100),
-            "verdict": (Short Title),
-            "analysis": (Critique specific trade timing),
-            "suggestion": (Specific advice),
-            "key_dates": ["YYYY-MM-DD"] (Pick 2-3 specific dates from trades to highlight)
+            "score": 75,
+            "verdict": "Stable but Conservative",
+            "analysis": "The strategy shows...",
+            "suggestion": "Consider adding...",
+            "key_dates": ["2023-01-01"]
         }
-        NO MARKDOWN.
+        RETURN ONLY JSON. NO MARKDOWN.
         `;
         const res = await model.generateContent(prompt);
-        return cleanAndParseJSON(res.response.text()) as DiagnosisContent;
+        const text = res.response.text();
+        
+        // Custom parsing for Diagnosis to avoid the AIResponse fallback
+        try {
+            let clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            const firstOpen = clean.indexOf('{');
+            const lastClose = clean.lastIndexOf('}');
+            if (firstOpen !== -1 && lastClose !== -1) {
+                clean = clean.substring(firstOpen, lastClose + 1);
+                return JSON.parse(clean) as DiagnosisContent;
+            }
+        } catch (e) {
+            console.error("Diagnosis Parse Error", e);
+        }
+        return null;
     } catch (e) { return null; }
 };
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Stethoscope, Activity, CheckCircle2, AlertTriangle, Lightbulb } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { DiagnosisContent } from '../types'; // Fix Import
 
 interface DiagnosisModalProps {
@@ -74,22 +75,24 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({ isOpen, onClose,
 
                     {/* Analysis Section */}
                     <div>
-                        <h4 className="flex items-center gap-2 font-bold text-slate-700 mb-2">
-                            <AlertTriangle size={16} className="text-amber-500"/> Analysis
+                        <h4 className="flex items-center gap-2 font-bold text-slate-700 mb-2 text-lg">
+                            <AlertTriangle size={20} className="text-amber-500"/> Analysis
                         </h4>
-                        <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
-                            {diagnosis.analysis}
-                        </p>
+                        <div className="text-base text-slate-700 leading-relaxed bg-slate-50 p-5 rounded-xl border border-slate-100 [&>p]:mb-3 [&>p:last-child]:mb-0 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5">
+                            <ReactMarkdown>{diagnosis.analysis}</ReactMarkdown>
+                        </div>
                     </div>
 
                     {/* Suggestion Section */}
                     <div>
-                        <h4 className="flex items-center gap-2 font-bold text-slate-700 mb-2">
-                            <Lightbulb size={16} className="text-emerald-500"/> Recommendation
+                        <h4 className="flex items-center gap-2 font-bold text-slate-700 mb-2 text-lg">
+                            <Lightbulb size={20} className="text-emerald-500"/> Recommendation
                         </h4>
-                        <div className="text-sm font-medium text-emerald-800 bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex gap-3 items-start">
-                            <CheckCircle2 size={18} className="shrink-0 mt-0.5"/>
-                            {diagnosis.suggestion}
+                        <div className="text-base font-medium text-emerald-900 bg-emerald-50 p-5 rounded-xl border border-emerald-100 flex gap-3 items-start">
+                            <CheckCircle2 size={24} className="shrink-0 mt-0.5"/>
+                            <div className="[&>p]:mb-2 [&>p:last-child]:mb-0">
+                                <ReactMarkdown>{diagnosis.suggestion}</ReactMarkdown>
+                            </div>
                         </div>
                     </div>
 
