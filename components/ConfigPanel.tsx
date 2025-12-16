@@ -49,7 +49,7 @@ const ParamSlider: React.FC<ParamSliderProps> = ({
 
     return (
         <div className="group">
-          <div className="flex justify-between text-xs mb-3 text-slate-500 transition-colors group-hover:text-slate-700">
+          <div className="flex justify-between text-sm mb-3 text-slate-500 transition-colors group-hover:text-slate-700">
               <span className="font-bold tracking-wide">{label}</span>
               <span className={`font-mono font-bold px-2 py-0.5 rounded-md transition-transform duration-300 group-hover:scale-110 ${theme.badge}`}>{localValue.toFixed(step < 1 ? 2 : 0)}{suffix}</span>
           </div>
@@ -69,15 +69,15 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
   const handleParamChange = (key: keyof StrategyParams, value: number) => setParams({ ...params, [key]: value });
 
   return (
-    <Card className="flex flex-col gap-6 border-0 shadow-xl shadow-sakura-100/50 bg-white/90 backdrop-blur-md h-auto">
+    <Card className="flex flex-col gap-6 border-0 shadow-xl shadow-sakura-100/50 bg-white/90 backdrop-blur-md h-full">
       <div className="flex items-center justify-between mb-2 shrink-0">
         <div className="flex items-center gap-2">
-            <Settings2 className="text-sakura-400 animate-[spin_10s_linear_infinite]" size={20} />
-            <h2 className="text-lg font-bold text-slate-700">Configuration</h2>
+            <Settings2 className="text-sakura-400 animate-[spin_10s_linear_infinite]" size={22} />
+            <h2 className="text-xl font-bold text-slate-700">Configuration</h2>
         </div>
         <button 
             onClick={onSaveStrategy}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 text-[10px] font-bold rounded-lg hover:bg-indigo-100 border border-indigo-100 transition-all active:scale-95 group"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-lg hover:bg-indigo-100 border border-indigo-100 transition-all active:scale-95 group"
             title="Save Strategy"
         >
             <Save size={14} className="group-hover:text-indigo-700"/> SAVE
@@ -94,12 +94,12 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
         </div>
 
         <div className={`border rounded-xl transition-all duration-300 overflow-hidden ${isRiskOpen ? 'bg-amber-50/30 border-amber-100' : 'bg-white border-slate-100'}`}>
-            <button onClick={() => setIsRiskOpen(!isRiskOpen)} className="w-full flex items-center justify-between p-3 cursor-pointer hover:bg-amber-50/50 transition-colors"><div className="flex items-center gap-2 text-amber-500"><Lock size={16} /><span className="font-bold text-xs uppercase tracking-widest">Risk Management</span></div>{isRiskOpen ? <ChevronUp size={16} className="text-amber-300"/> : <ChevronDown size={16} className="text-slate-300"/>}</button>
+            <button onClick={() => setIsRiskOpen(!isRiskOpen)} className="w-full flex items-center justify-between p-3 cursor-pointer hover:bg-amber-50/50 transition-colors"><div className="flex items-center gap-2 text-amber-500"><Lock size={16} /><span className="font-bold text-sm uppercase tracking-widest">Risk Management</span></div>{isRiskOpen ? <ChevronUp size={16} className="text-amber-300"/> : <ChevronDown size={16} className="text-slate-300"/>}</button>
             <div className={`transition-all duration-500 ease-in-out ${isRiskOpen ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}><div className="p-4 pt-0 space-y-4"><ParamSlider label="Stop Loss" value={params.stopLoss} onChange={(v) => handleParamChange('stopLoss', v)} min={0} max={20} step={0.5} suffix="%" colorTheme="rose" /><ParamSlider label="Take Profit" value={params.takeProfit} onChange={(v) => handleParamChange('takeProfit', v)} min={0} max={50} step={1} suffix="%" colorTheme="emerald" /><ParamSlider label="Trailing Stop" value={params.trailingStop} onChange={(v) => handleParamChange('trailingStop', v)} min={0} max={20} step={0.5} suffix="%" colorTheme="sky" /></div></div>
         </div>
         
         <div className={`border rounded-xl transition-all duration-300 overflow-hidden ${isRealityOpen ? 'bg-rose-50/30 border-rose-100' : 'bg-white border-slate-100'}`}>
-            <button onClick={() => setIsRealityOpen(!isRealityOpen)} className="w-full flex items-center justify-between p-3 cursor-pointer hover:bg-rose-50/50 transition-colors"><div className="flex items-center gap-2 text-rose-500"><ShieldAlert size={16} /><span className="font-bold text-xs uppercase tracking-widest">Reality Check</span></div>{isRealityOpen ? <ChevronUp size={16} className="text-rose-300"/> : <ChevronDown size={16} className="text-slate-300"/>}</button>
+            <button onClick={() => setIsRealityOpen(!isRealityOpen)} className="w-full flex items-center justify-between p-3 cursor-pointer hover:bg-rose-50/50 transition-colors"><div className="flex items-center gap-2 text-rose-500"><ShieldAlert size={16} /><span className="font-bold text-sm uppercase tracking-widest">Reality Check</span></div>{isRealityOpen ? <ChevronUp size={16} className="text-rose-300"/> : <ChevronDown size={16} className="text-slate-300"/>}</button>
             <div className={`transition-all duration-500 ease-in-out ${isRealityOpen ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}><div className="p-4 pt-0 space-y-4"><ParamSlider label="Commission" value={fees} onChange={setFees} min={0} max={0.5} step={0.01} suffix="%" colorTheme="rose" /><ParamSlider label="Slippage" value={slippage} onChange={setSlippage} min={0} max={0.5} step={0.01} suffix="%" colorTheme="rose" /></div></div>
         </div>
 

@@ -239,8 +239,17 @@ class SakuraEngine:
         # --- 2. Calculate Metrics ---
         sharpe = pf_used.sharpe_ratio()
         if np.isnan(sharpe): sharpe = 0.0
-        win_rate = pf_used.trades.win_rate()
-        if np.isnan(win_rate): win_rate = 0.0
+        
+        # Calculate "Positive Time" - percentage of time capital stays above initial capital
+        try:
+            portfolio_value = pf_used.value()
+            start_value = float(portfolio_value.iloc[0])
+            positive_days = (portfolio_value >= start_value).sum()
+            total_days = len(portfolio_value)
+            positive_time_rate = (positive_days / total_days) if total_days > 0 else 0.0
+        except Exception:
+            positive_time_rate = 0.0
+            start_value = float(capital)
         
         # For consistency within the visible window, set initialCapital to the equity at the window start
         try:
@@ -253,7 +262,7 @@ class SakuraEngine:
             "finalCapital": float(pf_used.final_value()),
             "initialCapital": start_value,
             "maxDrawdown": float(pf_used.max_drawdown() * 100),
-            "winRate": float(win_rate * 100),
+            "winRate": float(positive_time_rate * 100),  # Now shows % of time above initial capital
             "tradeCount": len(trades_list), # EXACTLY matches the visible trades list
             "sharpeRatio": float(sharpe)
         }
