@@ -49,7 +49,7 @@ export const TickerSearch: React.FC<TickerSearchProps> = ({ value, onCommit }) =
 
   return (
     <div className="relative w-full" ref={containerRef}>
-      <div className="text-[10px] font-bold text-sakura-500 uppercase tracking-wider mb-1">Asset Symbol</div>
+      <div className="text-[10px] font-bold text-sakura-500 uppercase tracking-wider mb-1">Asset Ticker Symbol</div>
       <div className="relative group transition-transform duration-300 ease-out focus-within:scale-[1.02] origin-left z-50">
         <input value={query} onChange={(e) => { setQuery(e.target.value.toUpperCase()); setShowSuggestions(true); }} onKeyDown={handleKeyDown} onFocus={() => setShowSuggestions(true)} className="w-full pl-10 pr-16 py-2.5 rounded-xl border border-sakura-200 focus:border-sakura-400 focus:ring-4 focus:ring-sakura-50 outline-none transition-colors text-slate-700 bg-white/80 backdrop-blur-sm font-mono tracking-wider shadow-sm uppercase font-bold" />
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-sakura-300 transition-colors group-focus-within:text-sakura-500" size={18} />

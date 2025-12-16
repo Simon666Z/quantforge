@@ -84,9 +84,21 @@ export interface BacktestResult {
 export interface DiagnosisContent {
   score: number;
   verdict: string;
+  summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  risk_assessment: string;
+  market_conditions: string;
+  optimization_tips: string[];
   analysis: string;
   suggestion: string;
   key_dates: string[];
+  // Additional comprehensive report fields
+  strategyExplanation?: string;
+  performanceBreakdown?: string;
+  riskAssessment?: string;
+  marketConditions?: string;
+  recommendations?: string[];
 }
 
 export interface SavedStrategy {

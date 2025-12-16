@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, TrendingUp, ArrowRight, Loader2, Filter, Cpu, Bitcoin, PieChart, Globe } from 'lucide-react';
+import { X, Search, TrendingUp, ArrowRight, Loader2, Filter, Cpu, Bitcoin, PieChart, Globe, HelpCircle, ChevronDown, ChevronUp, Zap, Target, MousePointer } from 'lucide-react';
 import { ScreenerResult, runScreener } from '../services/quantEngine';
 import { StrategyType, StrategyParams } from '../types';
 
@@ -24,14 +24,24 @@ export const ScreenerModal: React.FC<ScreenerModalProps> = ({ isOpen, onClose, s
   const [results, setResults] = useState<ScreenerResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [isMounting, setIsMounting] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
         setIsMounting(true);
         handleScan(activeSector);
+        // Lock body scroll when modal opens
+        document.body.style.overflow = 'hidden';
     } else {
         setTimeout(() => setIsMounting(false), 400);
+        // Restore body scroll when modal closes
+        document.body.style.overflow = '';
     }
+    
+    // Cleanup on unmount
+    return () => {
+        document.body.style.overflow = '';
+    };
   }, [isOpen]);
 
   const handleScan = async (sector: string) => {
@@ -61,24 +71,74 @@ export const ScreenerModal: React.FC<ScreenerModalProps> = ({ isOpen, onClose, s
       >
         
         {/* Sidebar */}
-        <div className="w-64 bg-slate-50 border-r border-slate-100 p-6 flex flex-col gap-2 shrink-0">
-            <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+        <div className="w-64 bg-slate-50 border-r border-slate-100 p-6 flex flex-col gap-2 shrink-0 overflow-y-auto custom-scrollbar">
+            <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2 shrink-0">
                 <Filter size={20} className="text-sakura-400"/> Screener
             </h3>
-            <p className="text-xs text-slate-400 mb-4">Find assets with <strong>active signals</strong> based on your current strategy.</p>
+            <p className="text-xs text-slate-400 mb-4 shrink-0">Find assets with <strong>active signals</strong> based on your current strategy.</p>
             
+            <div className="shrink-0">
             {SECTORS.map(s => {
                 const Icon = s.icon;
                 return (
                     <button 
                         key={s.id}
                         onClick={() => handleScan(s.id)}
-                        className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-3 ${activeSector === s.id ? 'bg-white shadow-md text-sakura-500 ring-1 ring-sakura-100' : 'text-slate-500 hover:bg-white hover:shadow-sm'}`}
+                        className={`w-full text-left px-4 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-3 mb-2 ${activeSector === s.id ? 'bg-white shadow-md text-sakura-500 ring-1 ring-sakura-100' : 'text-slate-500 hover:bg-white hover:shadow-sm'}`}
                     >
                         <Icon size={16} /> {s.name}
                     </button>
                 );
             })}
+            </div>
+
+            {/* Help Section */}
+            <div className="pt-4 border-t border-slate-200">
+                <button 
+                    onClick={() => setShowHelp(!showHelp)}
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-slate-500 hover:bg-white hover:text-indigo-500 transition-all text-sm font-medium"
+                >
+                    <span className="flex items-center gap-2">
+                        <HelpCircle size={16} />
+                        How to use
+                    </span>
+                    {showHelp ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </button>
+                
+                <div className={`transition-all duration-300 ${showHelp ? 'opacity-100 mt-3' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+                    <div className="bg-white rounded-xl p-4 space-y-3 text-xs border border-slate-100 shadow-sm">
+                        <div className="flex items-start gap-2">
+                            <div className="p-1.5 rounded-lg bg-sakura-50 text-sakura-500 shrink-0">
+                                <Zap size={12} />
+                            </div>
+                            <div>
+                                <p className="font-bold text-slate-700 mb-0.5">What it does</p>
+                                <p className="text-slate-500 leading-relaxed">Scans multiple assets to find those with active buy/sell signals based on your current strategy configuration.</p>
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-start gap-2">
+                            <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-500 shrink-0">
+                                <Target size={12} />
+                            </div>
+                            <div>
+                                <p className="font-bold text-slate-700 mb-0.5">Sectors</p>
+                                <p className="text-slate-500 leading-relaxed">Choose from Big Tech, Crypto, ETFs, or China ADRs. Each sector contains curated popular assets.</p>
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-start gap-2">
+                            <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-500 shrink-0">
+                                <MousePointer size={12} />
+                            </div>
+                            <div>
+                                <p className="font-bold text-slate-700 mb-0.5">Analyze</p>
+                                <p className="text-slate-500 leading-relaxed">Click any result card to load that ticker into the main chart and run a full backtest.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         {/* Content */}
